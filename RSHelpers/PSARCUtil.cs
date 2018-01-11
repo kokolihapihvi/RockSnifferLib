@@ -125,7 +125,6 @@ namespace RockSnifferLib.RSHelpers
                         //}
                     }
                 }
-
                 return detailsDict;
             }
 
