@@ -321,6 +321,12 @@ namespace RockSnifferLib.RSHelpers
                 return false;
             }
 
+            //Verify that the lengh of the STID data is not too short
+            if (sLen < 16)
+            {
+                return false;
+            }
+
             //If all checks passed
             return true;
         }
