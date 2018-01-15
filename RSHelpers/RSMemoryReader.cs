@@ -321,12 +321,6 @@ namespace RockSnifferLib.RSHelpers
                 return false;
             }
 
-            //Verify that the lengh of the STID data is not too short
-            if (sLen < 16)
-            {
-                return false;
-            }
-
             //If all checks passed
             return true;
         }
@@ -335,6 +329,7 @@ namespace RockSnifferLib.RSHelpers
         {
             int hLen = 0;
             int sLen = 0;
+            int sLen = 0;           
 
             //If our current HIRC pointer is no longer valid, don't try to read
             if (!IsValidHIRCPointer(HIRCPtr, out hLen, out sLen))
@@ -357,6 +352,12 @@ namespace RockSnifferLib.RSHelpers
 
             //Read STID data to byte buffer
             byte[] stid = MemoryHelper.ReadBytesFromMemory(rsProcessHandle, IntPtr.Add(HIRCPtr, 8 + hLen), sLen);
+
+            // No song data present, possibly in menus
+            if (sLen < 16)
+            {
+                return;
+            }
 
             //Skip irrelevant data to us and just read length byte
             byte len = stid[16];
