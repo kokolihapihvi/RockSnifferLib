@@ -352,8 +352,8 @@ namespace RockSnifferLib.RSHelpers
             //Read STID data to byte buffer
             byte[] stid = MemoryHelper.ReadBytesFromMemory(rsProcessHandle, IntPtr.Add(HIRCPtr, 8 + hLen), sLen);
 
-            // No song data present, possibly in menus
-            if (sLen < 16)
+            // A 4 byte long STID is present in menus before highlighting a song, and will contain no song data
+            if (sLen == 4)
             {
                 return;
             }
