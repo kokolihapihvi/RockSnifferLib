@@ -328,7 +328,7 @@ namespace RockSnifferLib.RSHelpers
         private void ReadHIRC()
         {
             int hLen = 0;
-            int sLen = 0;
+            int sLen = 0;       
 
             //If our current HIRC pointer is no longer valid, don't try to read
             if (!IsValidHIRCPointer(HIRCPtr, out hLen, out sLen))
@@ -351,6 +351,12 @@ namespace RockSnifferLib.RSHelpers
 
             //Read STID data to byte buffer
             byte[] stid = MemoryHelper.ReadBytesFromMemory(rsProcessHandle, IntPtr.Add(HIRCPtr, 8 + hLen), sLen);
+
+            // A 4 byte long STID is present in menus before highlighting a song, and will contain no song data
+            if (sLen == 4)
+            {
+                return;
+            }
 
             //Skip irrelevant data to us and just read length byte
             byte len = stid[16];
