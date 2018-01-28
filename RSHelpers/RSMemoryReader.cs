@@ -26,12 +26,14 @@ namespace RockSnifferLib.RSHelpers
         public RSMemoryReader(Process rsProcess)
         {
             this.rsProcess = rsProcess;
-
-            //rsProcessHandle = Win32API.OpenProcess(Win32API.ProcessAccessFlags.DupHandle | Win32API.ProcessAccessFlags.VMRead, false, rsProcess.Id);
+            
             rsProcessHandle = rsProcess.Handle;
         }
 
-        public RSMemoryReadout DoReadout()
+        /// <summary>
+        /// Look for HIRC pointer and read if possible
+        /// </summary>
+        public void DoHIRCReadout()
         {
             // SONG ID
             //
@@ -57,15 +59,12 @@ namespace RockSnifferLib.RSHelpers
                         Logger.Log("HIRC addr: 0x{0:X}", HIRCPtr.ToInt32());
                     }
                 }
-                catch//(Exception e)
+                catch
                 {
                     if (Logger.logHIRCScan)
                     {
                         Logger.Log("HIRC addr fetch failed");
                     }
-                    //Console.WriteLine(e.Message);
-                    //Console.WriteLine(e.StackTrace);
-                    //Console.WriteLine();
                 }
             }
             try
@@ -79,10 +78,17 @@ namespace RockSnifferLib.RSHelpers
             }
             catch
             {
-                //If there is an error, assume that the pointer is not valid and needs to be re-fetched
-                HIRCPtr = IntPtr.Zero;
+                //If there was an error, assume that the pointer is not valid and needs to be re-fetched
+                RevalidateHIRC();
             }
+        }
 
+        /// <summary>
+        /// Read song timer and note data from memory
+        /// </summary>
+        /// <returns></returns>
+        public RSMemoryReadout DoReadout()
+        {
             // SONG TIMER
             //
             //Weird static address: FollowPointers(0x01567AB0, new int[]{ 0x80, 0x20, 0x10C, 0x244 })
@@ -159,7 +165,19 @@ namespace RockSnifferLib.RSHelpers
         /// </summary>
         public void RevalidateHIRC()
         {
+            //Return if pointer is already invalidated
+            if (HIRCPtr == IntPtr.Zero)
+            {
+                return;
+            }
+
+            if (Logger.logHIRCScan)
+            {
+                Logger.Log("Revalidating HIRC pointer");
+            }
+
             oldHIRCPtr = new IntPtr(HIRCPtr.ToInt32());
+
             HIRCPtr = IntPtr.Zero;
         }
 
@@ -185,7 +203,8 @@ namespace RockSnifferLib.RSHelpers
 
             //Start at an arbitrary point in memory, after most of the static stuff
             //End at an arbitrary point in memory, mostly a guess, hopefully after the heap where RS allocates HIRC data
-            for (i = 0x10000000; i < 0x40000000; i += chunkSize)
+            //Start next chunk 1kb before the previous chunks end in case the HIRC pattern is on the chunks border
+            for (i = 0x10000000; i < 0x40000000; i += (chunkSize - 1024))
             {
                 //Read chunkSize bytes
                 MemoryHelper.ReadBytesFromMemory(rsProcessHandle, IntPtr.Add(baseAddress, i), chunkSize, ref scan);
@@ -201,10 +220,14 @@ namespace RockSnifferLib.RSHelpers
                         IntPtr newPtr = IntPtr.Add(baseAddress, i + i2);
 
                         //Add value to the list
-                        hircPointers.Add(newPtr);
+                        if(!hircPointers.Contains(newPtr))
+                        {
+                            hircPointers.Add(newPtr);
+                        }
                     }
 
-                    i2 = Array.IndexOf(scan, hircPattern[0], i2 + hircPattern.Length);
+                    //We need to only skip ahead 1 byte, because a 0x48 within 4 bytes before the HIRC pattern will fool us
+                    i2 = Array.IndexOf(scan, hircPattern[0], i2 + 1);
                 }
             }
 
@@ -212,7 +235,7 @@ namespace RockSnifferLib.RSHelpers
             foreach (IntPtr ptr in hircPointers)
             {
                 //Skip last invalidated pointer
-                if(ptr == oldHIRCPtr)
+                if (ptr == oldHIRCPtr)
                 {
                     continue;
                 }
@@ -247,48 +270,19 @@ namespace RockSnifferLib.RSHelpers
 
         private bool IsValidHIRCPointer(IntPtr ptr)
         {
-            //TODO: Read bigger chunk into byte array and do validity checks on that to avoid multiple memory reads
-
-            if (Logger.logHIRCScan)
-            {
-                Logger.Log("Checking validity of HIRC pointer {0:X}", ptr.ToInt32());
-            }
-
-            //Verify that we have "HIRC" at the pointer
-            byte[] hirc = MemoryHelper.ReadBytesFromMemory(rsProcessHandle, ptr, 4);
-            if (!hirc.SequenceEqual(hircPattern))
-            {
-                return false;
-            }
-
-            //Read HIRC data length
-            int hLen = MemoryHelper.ReadInt32FromMemory(rsProcessHandle, IntPtr.Add(ptr, 4));
-            //Add "HIRC" to length
-            hLen += 4;
-
-            //Verify that the length of the HIRC data is not too long
-            if (hLen > 1000)
-            {
-                return false;
-            }
-
-            //Read STID data length
-            int sLen = MemoryHelper.ReadInt32FromMemory(rsProcessHandle, IntPtr.Add(ptr, 8 + hLen));
-            //Add "STID" to length
-            sLen += 4;
-
-            //Verity that the length of the STID data is not too long
-            if (sLen > 1000)
-            {
-                return false;
-            }
-
-            //If all checks passed
-            return true;
+            //Call the function discarding out parameters
+            return IsValidHIRCPointer(ptr, out int _, out int _);
         }
 
         private bool IsValidHIRCPointer(IntPtr ptr, out int hLen, out int sLen)
         {
+            //TODO: Read bigger chunk into byte array and do validity checks on that to avoid multiple memory reads
+
+            if (Logger.logHIRCScan)
+            {
+                Logger.Log("Checking validity of HIRC pointer 0x{0:X}", ptr.ToInt32());
+            }
+
             hLen = 0;
             sLen = 0;
 
@@ -321,6 +315,19 @@ namespace RockSnifferLib.RSHelpers
                 return false;
             }
 
+            //Verify that the length of the STID data is not too short
+            if (sLen <= 4)
+            {
+                return false;
+            }
+
+            //Verify that containing STID data name starts with "Song_", and ends with "_Preview"
+            string STIDName = ReadSTIDName(ptr, hLen, sLen);
+            if (!(STIDName.StartsWith("Song_") && STIDName.EndsWith("_Preview")))
+            {
+                return false;
+            }
+
             //If all checks passed
             return true;
         }
@@ -349,8 +356,31 @@ namespace RockSnifferLib.RSHelpers
                 } END FOR
             */
 
+            //Read STID name
+            string s = ReadSTIDName(HIRCPtr, hLen, sLen);
+
+            if (Logger.logHIRCScan)
+            {
+                Logger.Log("HIRC->STID->name = '{0}'", s);
+            }
+
+            //If it starts with Song_ assume it's correct
+            if (s.StartsWith("Song_"))
+            {
+                //Take a substring from the STID name, removing "Song_" from the beginning, and "_Preview" from the end
+                readout.songID = s.Substring(5, s.Length - 13);
+            }
+            else
+            {
+                //Otherwise revalidate the pointer
+                RevalidateHIRC();
+            }
+        }
+
+        private string ReadSTIDName(IntPtr ptr, int hLen, int sLen)
+        {
             //Read STID data to byte buffer
-            byte[] stid = MemoryHelper.ReadBytesFromMemory(rsProcessHandle, IntPtr.Add(HIRCPtr, 8 + hLen), sLen);
+            byte[] stid = MemoryHelper.ReadBytesFromMemory(rsProcessHandle, IntPtr.Add(ptr, 8 + hLen), sLen);
 
             //Skip irrelevant data to us and just read length byte
             byte len = stid[16];
@@ -367,11 +397,7 @@ namespace RockSnifferLib.RSHelpers
                 Logger.Log("HIRC->STID->name = '{0}'", s);
             }
 
-            //If it starts with Song_ assume it's correct
-            if (s.StartsWith("Song_"))
-            {
-                readout.songID = s.Split('_')[1];
-            }
+            return s;
         }
     }
 }

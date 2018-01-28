@@ -1,17 +1,18 @@
 ﻿using Newtonsoft.Json;
 using RockSnifferLib.Logging;
+using RockSnifferLib.Sniffing;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 
-namespace RockSnifferLib.Sniffing
+namespace RockSnifferLib.Cache
 {
-    public class Cache
+    public class FileCache : ICache
     {
         public string cachedir;
 
-        public Cache(string dir)
+        public FileCache(string dir)
         {
             cachedir = dir;
 
@@ -92,7 +93,7 @@ namespace RockSnifferLib.Sniffing
             }
         }
 
-        public string SanitizeFilename(string filename)
+        private string SanitizeFilename(string filename)
         {
             //Remove invalid file name characters
             foreach (char character in Path.GetInvalidFileNameChars())

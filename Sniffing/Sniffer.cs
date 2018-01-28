@@ -1,34 +1,32 @@
-﻿using RockSnifferLib.RSHelpers;
+﻿using RockSnifferLib.Cache;
+using RockSnifferLib.Events;
+using RockSnifferLib.Logging;
+using RockSnifferLib.RSHelpers;
 using RockSnifferLib.SysHelpers;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System;
-using RockSnifferLib.Logging;
 
 namespace RockSnifferLib.Sniffing
 {
     public class Sniffer
     {
         /// <summary>
-        /// Sniffer states
+        /// Fired when the Sniffer state has changed
         /// </summary>
-        public enum SnifferState
-        {
-            NONE,
-            IN_MENUS,
-            SONG_SELECTED,
-            SONG_STARTING,
-            SONG_PLAYING,
-            SONG_ENDING
-        }
+        public event EventHandler<OnStateChangedArgs> OnStateChanged;
 
-        public event SongChanged OnCurrentSongChanged;
-        public delegate void SongChanged(SongDetails songDetails);
+        /// <summary>
+        /// Fired when the current song details have changed
+        /// </summary>
+        public event EventHandler<OnSongChangedArgs> OnSongChanged;
 
-        public event MemoryReadout OnMemoryReadout;
-        public delegate void MemoryReadout(RSMemoryReadout memReadout);
+        /// <summary>
+        /// Fired after each successful memory readout
+        /// </summary>
+        public event EventHandler<OnMemoryReadoutArgs> OnMemoryReadout;
 
         /// <summary>
         /// The current state of rocksmith, initial state is IN_MENUS
@@ -59,7 +57,7 @@ namespace RockSnifferLib.Sniffing
         /// <summary>
         /// Cache to use
         /// </summary>
-        private Cache cache;
+        private ICache cache;
 
         /// <summary>
         /// The memory reader
@@ -76,7 +74,7 @@ namespace RockSnifferLib.Sniffing
         /// </summary>
         /// <param name="rsProcess"></param>
         /// <param name="cache"></param>
-        public Sniffer(Process rsProcess, Cache cache)
+        public Sniffer(Process rsProcess, ICache cache)
         {
             this.rsProcess = rsProcess;
             this.cache = cache;
@@ -94,13 +92,14 @@ namespace RockSnifferLib.Sniffing
             {
                 try
                 {
-                    currentMemoryReadout = memReader.DoReadout();
-
-                    //If the song details are not valid, but there appears to be a songID, revalidate HIRC pointer
-                    if (!currentCDLCDetails.IsValid() && currentMemoryReadout.songID != null)
+                    //If we are in menus, search for HIRC pointers
+                    if (currentState == SnifferState.IN_MENUS)
                     {
-                        memReader.RevalidateHIRC();
+                        memReader.DoHIRCReadout();
                     }
+
+                    //Read data from memory
+                    currentMemoryReadout = memReader.DoReadout();
                 }
                 catch (Exception e)
                 {
@@ -112,7 +111,7 @@ namespace RockSnifferLib.Sniffing
                     //Silently ignore
                 }
 
-                OnMemoryReadout?.Invoke(currentMemoryReadout);
+                OnMemoryReadout?.Invoke(this, new OnMemoryReadoutArgs() { memoryReadout = currentMemoryReadout });
 
                 await Task.Delay(100);
             }
@@ -182,12 +181,21 @@ namespace RockSnifferLib.Sniffing
                 {
                     UpdateCurrentDetails(dlcFile);
                 }
+
+                //If the song details are not valid, revalidate the HIRC pointer
+                //Assuming that we got the wrong HIRC struct and the dlc filepath is correct
+                if (!currentCDLCDetails.IsValid())
+                {
+                    memReader.RevalidateHIRC();
+                }
             }
 
             return currentCDLCDetails;
         }
 
-        //Stop running
+        /// <summary>
+        /// Stops the sniffer, stopping all async tasks
+        /// </summary>
         public void Stop()
         {
             running = false;
@@ -281,9 +289,9 @@ namespace RockSnifferLib.Sniffing
                     break;
                 case SnifferState.SONG_PLAYING:
                     //Allow 5 seconds of error margin on song ending
-                    if (this.currentMemoryReadout.songTimer >= currentCDLCDetails.songLength - 5)
+                    if (currentMemoryReadout.songTimer >= currentCDLCDetails.songLength - 5)
                     {
-                        this.currentState = SnifferState.SONG_ENDING;
+                        currentState = SnifferState.SONG_ENDING;
                     }
                     //If the timer goes to 0, the user must have quit
                     if (currentMemoryReadout.songTimer == 0)
@@ -307,10 +315,19 @@ namespace RockSnifferLib.Sniffing
                 currentState = SnifferState.IN_MENUS;
             }
 
+            //If state changed
             if (currentState != previousState)
             {
+                //Invoke event
+                OnStateChanged?.Invoke(this, new OnStateChangedArgs() { oldState = previousState, newState = currentState });
+
+                //Remember previous state
                 previousState = currentState;
-                Logging.Logger.Log("Current state: {0}", currentState.ToString());
+
+                if (Logger.logStateMachine)
+                {
+                    Logger.Log("Current state: {0}", currentState.ToString());
+                }
             }
         }
 
@@ -320,17 +337,6 @@ namespace RockSnifferLib.Sniffing
             if (currentMemoryReadout.songID == currentCDLCDetails.songID && currentCDLCDetails.IsValid())
             {
                 return;
-            }
-
-            //One more sanity check, sometimes rocksmith overwrites the HIRC header immediately, causing Sniffer to become confused about which song is playing
-            //Let's check for that:
-            //If the song id's don't match, and songTimer is not exactly zero, don't bother updating currentSongDetails
-            if (currentMemoryReadout.songID != currentCDLCDetails.songID)
-            {
-                if (currentMemoryReadout.songTimer != 0)
-                {
-                    //return;
-                }
             }
 
             //If songID is empty, we aren't gonna be able to do anything here
@@ -356,7 +362,7 @@ namespace RockSnifferLib.Sniffing
                 currentCDLCDetails.print();
 
                 //Invoke event
-                OnCurrentSongChanged?.Invoke(currentCDLCDetails);
+                OnSongChanged?.Invoke(this, new OnSongChangedArgs() { songDetails = currentCDLCDetails });
 
                 //Exit function as data was handled from cache
                 return;
@@ -381,15 +387,12 @@ namespace RockSnifferLib.Sniffing
                 //Read the rs1 dlc psarc
                 var rs1SongDetails = PSARCUtil.ReadPSARCHeaderData(rs1dlcpath);
 
-                //If loading failed
-                if (rs1SongDetails == null)
+                //If we got rs1 dlc arrangements
+                if (rs1SongDetails != null)
                 {
-                    //Exit function
-                    return;
+                    //Combine the two dictionaries
+                    allSongDetails = allSongDetails.Concat(rs1SongDetails).ToDictionary(k => k.Key, v => v.Value);
                 }
-
-                //Combine the two dictionaries
-                allSongDetails = allSongDetails.Concat(rs1SongDetails).ToDictionary(k => k.Key, v => v.Value);
             }
 
             //If the song detail dictionary contains the song ID we are looking for
@@ -406,7 +409,7 @@ namespace RockSnifferLib.Sniffing
             currentCDLCDetails.print();
 
             //Invoke event
-            OnCurrentSongChanged?.Invoke(currentCDLCDetails);
+            OnSongChanged?.Invoke(this, new OnSongChangedArgs() { songDetails = currentCDLCDetails });
 
             return;
         }

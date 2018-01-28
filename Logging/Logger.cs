@@ -38,6 +38,11 @@ namespace RockSnifferLib.Logging
         public static bool logFileDetailQuery = false;
 
         /// <summary>
+        /// Log state changes
+        /// </summary>
+        public static bool logStateMachine;
+
+        /// <summary>
         /// Logs an error into the console, in red text
         /// </summary>
         /// <param name="pattern"></param>
