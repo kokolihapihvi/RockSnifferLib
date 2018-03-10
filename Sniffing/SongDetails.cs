@@ -20,12 +20,12 @@ namespace RockSnifferLib.Sniffing
         [NonSerialized]
         public Image albumArt;
 
-        public void print()
+        public void Print()
         {
             //Print details into the console if they are valid
             if (Logger.logSongDetails && IsValid())
             {
-                Console.WriteLine("{0} - {1}, album:{2}, yr:{3}, len:{4}, art:{5}", artistName, songName, albumName, albumYear, songLength, (albumArt != null) ? "Y" : "N");
+                Logger.Log("{6}: {0} - {1}, album:{2}, yr:{3}, len:{4}, art:{5}", artistName, songName, albumName, albumYear, songLength, (albumArt != null) ? "Y" : "N", songID);
             }
 
             //Print warning if there are more than 6 arrangements (RS crash)

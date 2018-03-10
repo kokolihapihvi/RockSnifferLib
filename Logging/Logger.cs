@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using System.Text;
 
 namespace RockSnifferLib.Logging
 {
@@ -16,6 +18,11 @@ namespace RockSnifferLib.Logging
         /// Log HIRC memory scan related information
         /// </summary>
         public static bool logHIRCScan = false;
+
+        /// <summary>
+        /// Log HIRC validation results
+        /// </summary>
+        public static bool logHIRCValidation = false;
 
         /// <summary>
         /// Log memory readout results
@@ -47,11 +54,15 @@ namespace RockSnifferLib.Logging
         /// </summary>
         /// <param name="pattern"></param>
         /// <param name="p"></param>
-        internal static void LogError(string pattern, params object[] p)
+        public static void LogError(string pattern, params object[] p)
         {
+            pattern = "[" + DateTime.Now + "] " + pattern;
+
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(pattern, p);
             Console.ResetColor();
+
+            WriteToFile("sniffer.log", string.Format(pattern, p) + "\r\n");
         }
 
         /// <summary>
@@ -59,9 +70,30 @@ namespace RockSnifferLib.Logging
         /// </summary>
         /// <param name="pattern"></param>
         /// <param name="p"></param>
-        internal static void Log(string pattern, params object[] p)
+        public static void Log(string pattern, params object[] p)
         {
+            pattern = "[" + DateTime.Now + "] " + pattern;
+
             Console.WriteLine(pattern, p);
+
+            WriteToFile("sniffer.log", string.Format(pattern, p) + "\r\n");
+        }
+
+        private static void WriteToFile(string path, string text)
+        {
+            try
+            {
+                using (var fstream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read))
+                {
+                    byte[] bytes = Encoding.UTF8.GetBytes(text);
+
+                    fstream.Write(bytes, 0, bytes.Length);
+                }
+            }
+            catch
+            {
+
+            }
         }
     }
 }

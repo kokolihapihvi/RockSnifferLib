@@ -4,6 +4,7 @@ using RockSnifferLib.Logging;
 using RockSnifferLib.RSHelpers;
 using RockSnifferLib.SysHelpers;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -105,13 +106,14 @@ namespace RockSnifferLib.Sniffing
                 {
                     if (running)
                     {
-                        Logger.LogError("Error while reading memory: {0} {1}", e.GetType(), e.Message);
+                        Logger.LogError("Error while reading memory: {0} {1}\r\n{2}", e.GetType(), e.Message, e.StackTrace);
                     }
-
-                    //Silently ignore
                 }
 
                 OnMemoryReadout?.Invoke(this, new OnMemoryReadoutArgs() { memoryReadout = currentMemoryReadout });
+
+                //Print memreadout if debug is enabled
+                currentMemoryReadout.Print();
 
                 await Task.Delay(100);
             }
@@ -175,11 +177,20 @@ namespace RockSnifferLib.Sniffing
             //Only sniff file handles if we are in the menus, or if the current song differs from the current memory readout
             if (currentState == SnifferState.IN_MENUS || (currentCDLCDetails.songID != currentMemoryReadout.songID))
             {
-                string dlcFile = SniffFileHandles();
+                //Get a list of files rocksmith is accessing
+                List<string> dlcFiles = SniffFileHandles();
 
-                if (dlcFile != null)
+                //If the list exists
+                if (dlcFiles != null && dlcFiles.Count > 0)
                 {
-                    UpdateCurrentDetails(dlcFile);
+                    //Go through all the dlc files until we find a match
+                    foreach(string dlcFile in dlcFiles)
+                    {
+                        if(UpdateCurrentDetails(dlcFile))
+                        {
+                            break;
+                        }
+                    }
                 }
 
                 //If the song details are not valid, revalidate the HIRC pointer
@@ -201,8 +212,11 @@ namespace RockSnifferLib.Sniffing
             running = false;
         }
 
-        private string SniffFileHandles()
+        private List<string> SniffFileHandles()
         {
+            //Build a list of all song files being accessed
+            List<string> songFiles = new List<string>();
+
             //Get all handles from the rocksmith process
             var handles = CustomAPI.GetHandles(rsProcess);
 
@@ -213,8 +227,6 @@ namespace RockSnifferLib.Sniffing
             }
 
             var strTemp = "";
-            bool matched = false;
-            var songsPsarc = "";
 
             //Go through all the handles
             for (int i = 0; i < handles.Count; i++)
@@ -230,28 +242,21 @@ namespace RockSnifferLib.Sniffing
 
                 strTemp = fd.Name;
 
+                //Add songs.psarc
                 if (strTemp.EndsWith("songs.psarc"))
                 {
-                    songsPsarc = strTemp;
+                    songFiles.Add(strTemp);
                 }
 
                 //Check if it matches the dlc pattern
                 if (dlcPSARCMatcher.IsMatch(strTemp))
                 {
-                    //Mark that we found a DLC file
-                    matched = true;
-
-                    //Return this DLC file
-                    return strTemp;
+                    //Add dlc files
+                    songFiles.Add(strTemp);
                 }
             }
 
-            if (!matched)
-            {
-                return songsPsarc;
-            }
-
-            return null;
+            return songFiles;
         }
 
         /// <summary>
@@ -331,18 +336,23 @@ namespace RockSnifferLib.Sniffing
             }
         }
 
-        private void UpdateCurrentDetails(string filepath)
+        private bool UpdateCurrentDetails(string filepath)
         {
             //If the song has not changed, and the details object is valid, no need to update
             if (currentMemoryReadout.songID == currentCDLCDetails.songID && currentCDLCDetails.IsValid())
             {
-                return;
+                return true;
+            }
+
+            if (Logger.logSongDetails)
+            {
+                Logger.Log("Looking for '{0}' in psarc file: {1}", currentMemoryReadout.songID, filepath);
             }
 
             //If songID is empty, we aren't gonna be able to do anything here
             if (currentMemoryReadout.songID == "")
             {
-                return;
+                return true;
             }
 
             //Check if this psarc file is cached
@@ -356,16 +366,19 @@ namespace RockSnifferLib.Sniffing
                 {
                     //Set invalid song details
                     currentCDLCDetails = new SongDetails();
+
+                    //Return false, this is probably not the correct file
+                    return false;
                 }
 
                 //Print current details (if debug is enabled) and print warnings about this dlc
-                currentCDLCDetails.print();
+                currentCDLCDetails.Print();
 
                 //Invoke event
                 OnSongChanged?.Invoke(this, new OnSongChangedArgs() { songDetails = currentCDLCDetails });
 
                 //Exit function as data was handled from cache
-                return;
+                return true;
             }
 
             //Read psarc data into the details object
@@ -375,7 +388,7 @@ namespace RockSnifferLib.Sniffing
             if (allSongDetails == null)
             {
                 //Exit function
-                return;
+                return true;
             }
 
             //If this is the songs.psarc file, we should merge RS1 DLC into it
@@ -406,12 +419,12 @@ namespace RockSnifferLib.Sniffing
             cache.Add(filepath, allSongDetails);
 
             //Print current details (if debug is enabled) and print warnings about this dlc
-            currentCDLCDetails.print();
+            currentCDLCDetails.Print();
 
             //Invoke event
             OnSongChanged?.Invoke(this, new OnSongChangedArgs() { songDetails = currentCDLCDetails });
 
-            return;
+            return true;
         }
     }
 }

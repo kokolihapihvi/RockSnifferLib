@@ -26,11 +26,11 @@ namespace RockSnifferLib.RSHelpers
         /// <summary>
         /// Prints out this readouts details (if Logger.logMemoryOutput is enabled)
         /// </summary>
-        public void print()
+        public void Print()
         {
             if (Logger.logMemoryReadout)
             {
-                Logger.Log("SID: {0}\nt: {1}, hits: {2}, misses: {3}\nstreak: {4}, hstreak: {5}, mstreak:{6}", songID, songTimer, totalNotesHit, totalNotesMissed, currentHitStreak, highestHitStreak, currentMissStreak);
+                Logger.Log("SID: {0}\r\nt: {1}, hits: {2}, misses: {3}\r\nstreak: {4}, hstreak: {5}, mstreak:{6}", songID, songTimer, totalNotesHit, totalNotesMissed, currentHitStreak, highestHitStreak, currentMissStreak);
             }
         }
 

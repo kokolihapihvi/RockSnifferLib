@@ -129,7 +129,7 @@ namespace RockSnifferLib.SysHelpers
 
             if (Logger.logFileDetailQuery)
             {
-                Console.WriteLine("Querying OBJECT_NAME_INFORMATION");
+                Logger.Log("Querying OBJECT_NAME_INFORMATION");
             }
 
             //Query object name information

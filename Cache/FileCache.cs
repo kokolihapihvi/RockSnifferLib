@@ -58,7 +58,7 @@ namespace RockSnifferLib.Cache
             }
             else if (Logger.logCache)
             {
-                Logger.LogError("Cache for {0} does not contain {1}", SanitizeFilename(Path.GetFileNameWithoutExtension(filepath)), SanitizeFilename(songID));
+                Logger.Log("Cache for {0} does not contain {1}", SanitizeFilename(Path.GetFileNameWithoutExtension(filepath)), SanitizeFilename(songID));
             }
 
             return null;

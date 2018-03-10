@@ -108,8 +108,7 @@ namespace RockSnifferLib.RSHelpers
                             }
                             catch (Exception e)
                             {
-                                Logger.LogError("Warning: couldn't extract album art for {0}: {1}", attr.SongName, e.Message);
-                                //Console.WriteLine(e.StackTrace);
+                                Logger.LogError("Warning: couldn't extract album art for {0}: {1}\r\n{2}", attr.SongName, e.Message, e.StackTrace);
 
                                 details.albumArt = new Bitmap(1, 1);
                             }
