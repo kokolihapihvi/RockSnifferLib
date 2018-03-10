@@ -14,7 +14,9 @@ namespace RockSnifferLib.RSHelpers
 
         //Pointers
         private IntPtr HIRCPtr = IntPtr.Zero;
-        private IntPtr oldHIRCPtr = IntPtr.Zero;
+
+        //List of invalid pointers
+        List<IntPtr> invalidHIRCPtrs = new List<IntPtr>();
 
         //Search pattern for "HIRC"
         private readonly static byte[] hircPattern = new byte[] { 0x48, 0x49, 0x52, 0x43 };
@@ -26,7 +28,7 @@ namespace RockSnifferLib.RSHelpers
         public RSMemoryReader(Process rsProcess)
         {
             this.rsProcess = rsProcess;
-            
+
             rsProcessHandle = rsProcess.Handle;
         }
 
@@ -54,7 +56,7 @@ namespace RockSnifferLib.RSHelpers
                 {
                     HIRCPtr = FindHIRC();
 
-                    if (Logger.logHIRCScan)
+                    if (Logger.logHIRCScan && HIRCPtr != IntPtr.Zero)
                     {
                         Logger.Log("HIRC addr: 0x{0:X}", HIRCPtr.ToInt32());
                     }
@@ -176,7 +178,8 @@ namespace RockSnifferLib.RSHelpers
                 Logger.Log("Revalidating HIRC pointer");
             }
 
-            oldHIRCPtr = new IntPtr(HIRCPtr.ToInt32());
+            //Add the current pointer to the invalid list
+            invalidHIRCPtrs.Add(new IntPtr(HIRCPtr.ToInt32()));
 
             HIRCPtr = IntPtr.Zero;
         }
@@ -220,7 +223,7 @@ namespace RockSnifferLib.RSHelpers
                         IntPtr newPtr = IntPtr.Add(baseAddress, i + i2);
 
                         //Add value to the list
-                        if(!hircPointers.Contains(newPtr))
+                        if (!hircPointers.Contains(newPtr))
                         {
                             hircPointers.Add(newPtr);
                         }
@@ -231,11 +234,17 @@ namespace RockSnifferLib.RSHelpers
                 }
             }
 
+            //If no pointer was good, print error
+            if (Logger.logHIRCScan && hircPointers.Count > 0)
+            {
+                Logger.Log("Found {0} candidate HIRC pointers, {1} invalid", hircPointers.Count, invalidHIRCPtrs.Count);
+            }
+
             //Pick the first valid pointer
             foreach (IntPtr ptr in hircPointers)
             {
-                //Skip last invalidated pointer
-                if (ptr == oldHIRCPtr)
+                //Skip all invalidated pointers
+                if (invalidHIRCPtrs.Contains(ptr))
                 {
                     continue;
                 }
@@ -252,8 +261,8 @@ namespace RockSnifferLib.RSHelpers
                 Logger.LogError("Warning! Could not find valid HIRC pointer!");
             }
 
-            //If there was no valid pointer, maybe it's worth revisiting the old one
-            oldHIRCPtr = IntPtr.Zero;
+            //If there was no valid pointer, maybe it's worth revisiting the old ones
+            invalidHIRCPtrs.Clear();
 
             return IntPtr.Zero;
         }
@@ -278,7 +287,7 @@ namespace RockSnifferLib.RSHelpers
         {
             //TODO: Read bigger chunk into byte array and do validity checks on that to avoid multiple memory reads
 
-            if (Logger.logHIRCScan)
+            if (Logger.logHIRCValidation)
             {
                 Logger.Log("Checking validity of HIRC pointer 0x{0:X}", ptr.ToInt32());
             }
@@ -359,11 +368,6 @@ namespace RockSnifferLib.RSHelpers
             //Read STID name
             string s = ReadSTIDName(HIRCPtr, hLen, sLen);
 
-            if (Logger.logHIRCScan)
-            {
-                Logger.Log("HIRC->STID->name = '{0}'", s);
-            }
-
             //If it starts with Song_ assume it's correct
             if (s.StartsWith("Song_"))
             {
@@ -392,7 +396,7 @@ namespace RockSnifferLib.RSHelpers
 
             string s = new string(strBuf);
 
-            if (Logger.logHIRCScan)
+            if (Logger.logHIRCValidation)
             {
                 Logger.Log("HIRC->STID->name = '{0}'", s);
             }
