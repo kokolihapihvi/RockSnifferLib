@@ -175,7 +175,8 @@ namespace RockSnifferLib.Sniffing
         public SongDetails Sniff()
         {
             //Only sniff file handles if we are in the menus, or if the current song differs from the current memory readout
-            if (currentState == SnifferState.IN_MENUS || (currentCDLCDetails.songID != currentMemoryReadout.songID))
+            //Compare song id's in lowercase because the preview audio name is not guaranteed to match
+            if (currentState == SnifferState.IN_MENUS || (currentCDLCDetails.songID.ToLowerInvariant() != currentMemoryReadout.songID.ToLowerInvariant()))
             {
                 //Get a list of files rocksmith is accessing
                 List<string> dlcFiles = SniffFileHandles();
@@ -339,7 +340,8 @@ namespace RockSnifferLib.Sniffing
         private bool UpdateCurrentDetails(string filepath)
         {
             //If the song has not changed, and the details object is valid, no need to update
-            if (currentMemoryReadout.songID == currentCDLCDetails.songID && currentCDLCDetails.IsValid())
+            //Compare song id's in lowercase because the preview audio name is not guaranteed to match
+            if (currentCDLCDetails.IsValid() && currentMemoryReadout.songID.ToLowerInvariant() == currentCDLCDetails.songID.ToLowerInvariant())
             {
                 return true;
             }
