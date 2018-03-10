@@ -134,8 +134,6 @@ namespace RockSnifferLib.Sniffing
                     {
                         Logger.LogError("Error while processing state machine: {0} {1}", e.GetType(), e.Message);
                     }
-
-                    //Silently ignore
                 }
 
                 //Delay for 100 milliseconds
@@ -150,7 +148,7 @@ namespace RockSnifferLib.Sniffing
                 try
                 {
                     //Sniff for song details
-                    await Task.Run(() => Sniff());
+                    await Sniff();
                 }
                 catch (Exception e)
                 {
@@ -158,8 +156,6 @@ namespace RockSnifferLib.Sniffing
                     {
                         Logger.LogError("Error while sniffing: {0} {1}", e.GetType(), e.Message);
                     }
-
-                    //Silently ignore
                 }
 
                 //Delay for 1 second
@@ -170,9 +166,8 @@ namespace RockSnifferLib.Sniffing
         /// <summary>
         /// Sniff file handles and update cdlc details
         /// <para></para>
-        /// Will return the currently active song details even if not successful
         /// </summary>
-        public SongDetails Sniff()
+        public async Task Sniff()
         {
             //Only sniff file handles if we are in the menus, or if the current song differs from the current memory readout
             //Compare song id's in lowercase because the preview audio name is not guaranteed to match
@@ -187,7 +182,7 @@ namespace RockSnifferLib.Sniffing
                     //Go through all the dlc files until we find a match
                     foreach(string dlcFile in dlcFiles)
                     {
-                        if(UpdateCurrentDetails(dlcFile))
+                        if(await UpdateCurrentDetails(dlcFile))
                         {
                             break;
                         }
@@ -201,8 +196,6 @@ namespace RockSnifferLib.Sniffing
                     memReader.RevalidateHIRC();
                 }
             }
-
-            return currentCDLCDetails;
         }
 
         /// <summary>
@@ -337,7 +330,7 @@ namespace RockSnifferLib.Sniffing
             }
         }
 
-        private bool UpdateCurrentDetails(string filepath)
+        private async Task<bool> UpdateCurrentDetails(string filepath)
         {
             //If the song has not changed, and the details object is valid, no need to update
             //Compare song id's in lowercase because the preview audio name is not guaranteed to match
@@ -384,7 +377,7 @@ namespace RockSnifferLib.Sniffing
             }
 
             //Read psarc data into the details object
-            var allSongDetails = PSARCUtil.ReadPSARCHeaderData(filepath);
+            var allSongDetails = await Task.Run(() => PSARCUtil.ReadPSARCHeaderData(filepath));
 
             //If loading failed
             if (allSongDetails == null)
@@ -400,7 +393,7 @@ namespace RockSnifferLib.Sniffing
                 string rs1dlcpath = filepath.Replace("songs.psarc", "dlc" + System.IO.Path.DirectorySeparatorChar + "rs1compatibilitydlc_p.psarc");
 
                 //Read the rs1 dlc psarc
-                var rs1SongDetails = PSARCUtil.ReadPSARCHeaderData(rs1dlcpath);
+                var rs1SongDetails = await Task.Run(() => PSARCUtil.ReadPSARCHeaderData(rs1dlcpath));
 
                 //If we got rs1 dlc arrangements
                 if (rs1SongDetails != null)
