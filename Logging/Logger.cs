@@ -15,16 +15,6 @@ namespace RockSnifferLib.Logging
         public static bool logCache = false;
 
         /// <summary>
-        /// Log HIRC memory scan related information
-        /// </summary>
-        public static bool logHIRCScan = false;
-
-        /// <summary>
-        /// Log HIRC validation results
-        /// </summary>
-        public static bool logHIRCValidation = false;
-
-        /// <summary>
         /// Log memory readout results
         /// </summary>
         public static bool logMemoryReadout = false;

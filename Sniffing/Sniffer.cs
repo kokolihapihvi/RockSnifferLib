@@ -93,12 +93,6 @@ namespace RockSnifferLib.Sniffing
             {
                 try
                 {
-                    //If we are in menus, search for HIRC pointers
-                    if (currentState == SnifferState.IN_MENUS)
-                    {
-                        memReader.DoHIRCReadout();
-                    }
-
                     //Read data from memory
                     currentMemoryReadout = memReader.DoReadout();
                 }
@@ -187,13 +181,6 @@ namespace RockSnifferLib.Sniffing
                             break;
                         }
                     }
-                }
-
-                //If the song details are not valid, revalidate the HIRC pointer
-                //Assuming that we got the wrong HIRC struct and the dlc filepath is correct
-                if (!currentCDLCDetails.IsValid())
-                {
-                    memReader.RevalidateHIRC();
                 }
             }
         }

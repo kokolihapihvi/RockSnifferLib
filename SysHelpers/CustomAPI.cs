@@ -74,7 +74,7 @@ namespace RockSnifferLib.SysHelpers
                 else
                 {
                     shHandle = (Win32API.SYSTEM_HANDLE_INFORMATION)Marshal.PtrToStructure(ipHandle, shHandle.GetType());
-                    ipHandle = new IntPtr(ipHandle.ToInt64() + Marshal.SizeOf(shHandle));
+                    ipHandle = new IntPtr(ipHandle.ToInt32() + Marshal.SizeOf(shHandle) + 4);
                 }
 
                 //Skip if it belongs to another process
@@ -87,7 +87,12 @@ namespace RockSnifferLib.SysHelpers
 
             if (Logger.logSystemHandleQuery)
             {
-                Logger.Log("Handles filtered to {0}: {1}", process.ProcessName, lstHandles.Count);
+                Logger.Log("Handles filtered to {0}[{1}]: {2}", process.ProcessName, process.Id, lstHandles.Count);
+            }
+
+            if (lstHandles.Count == 0)
+            {
+                Logger.LogError("Warning: No handles found for {0}", process.ProcessName);
             }
 
             //Free memory
