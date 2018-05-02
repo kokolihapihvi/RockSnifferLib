@@ -1,6 +1,5 @@
 ﻿using RockSnifferLib.SysHelpers;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace RockSnifferLib.RSHelpers
@@ -9,15 +8,6 @@ namespace RockSnifferLib.RSHelpers
     {
         private RSMemoryReadout readout = new RSMemoryReadout();
         private RSMemoryReadout prevReadout = new RSMemoryReadout();
-
-        //Pointers
-        private IntPtr HIRCPtr = IntPtr.Zero;
-
-        //List of invalid pointers
-        List<IntPtr> invalidHIRCPtrs = new List<IntPtr>();
-
-        //Search pattern for "HIRC"
-        private readonly static byte[] hircPattern = new byte[] { 0x48, 0x49, 0x52, 0x43 };
 
         //Process handles
         public Process rsProcess;
