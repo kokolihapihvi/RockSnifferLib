@@ -59,11 +59,15 @@ namespace RockSnifferLib.RSHelpers
                 //Create string from char array
                 string preview_name = new string(chars);
 
-                //Remove Play_ prefix and _Preview suffix
-                string song_id = preview_name.Substring(5, preview_name.Length - 13);
+                //Verify Play_ prefix and _Preview suffix
+                if (preview_name.StartsWith("Play_") && preview_name.EndsWith("_Preview"))
+                {
+                    //Remove Play_ prefix and _Preview suffix
+                    string song_id = preview_name.Substring(5, preview_name.Length - 13);
 
-                //Assign to readout
-                readout.songID = song_id;
+                    //Assign to readout
+                    readout.songID = song_id;
+                }
             }
 
             // SONG TIMER
