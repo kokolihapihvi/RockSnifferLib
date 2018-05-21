@@ -3,6 +3,7 @@ using RockSnifferLib.Logging;
 using RockSnifferLib.Sniffing;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -17,10 +18,10 @@ namespace RockSnifferLib.RSHelpers
         /// <param name="loader"></param>
         /// <param name="artFile"></param>
         /// <returns></returns>
-        internal static Bitmap ExtractAlbumArt(PsarcLoader loader, string artFile)
+        internal static Bitmap ExtractAlbumArt(LazyPsarcLoader loader, string artFile)
         {
             //Select the correct entry and load it into the memory stream
-            using (MemoryStream ms = (MemoryStream)loader.ExtractEntryData(x => (x.Name == "gfxassets/album_art/" + artFile.Substring(14) + "_256.dds")))
+            using (MemoryStream ms = loader.ExtractEntryData(x => (x.Name == "gfxassets/album_art/" + artFile.Substring(14) + "_256.dds")))
             {
                 //Create a Pfim image from memory stream
                 Pfim.Dds img = Pfim.Dds.Create(ms);
@@ -62,20 +63,22 @@ namespace RockSnifferLib.RSHelpers
                 return null;
             }
 
+            var sw = new Stopwatch();
+            sw.Start();
+
             //If its big, print a warning
-            long size = new FileInfo(filepath).Length;
+            var fileinfo = new FileInfo(filepath);
+            long size = fileinfo.Length;
 
             //20 MB to trigger warning
             if (size > (1024 * 1024) * 20)
             {
-                Logger.LogError("WARNING: Processing a very large PSARC archive! {0} ({1:n0} MB)\nThis will take some crunching!", Path.GetFileName(filepath), size / 1024 / 1024);
+                //Logger.LogError("WARNING: Processing a very large PSARC archive! {0} ({1:n0} MB)\nThis will take some crunching!", Path.GetFileName(filepath), size / 1024 / 1024);
             }
 
             var detailsDict = new Dictionary<string, SongDetails>();
 
-            //var data = new DLCPackageData();
-
-            using (PsarcLoader loader = new PsarcLoader(filepath, true))
+            using (LazyPsarcLoader loader = new LazyPsarcLoader(filepath))
             {
                 foreach (var v in loader.ExtractJsonManifests())
                 {
@@ -90,16 +93,6 @@ namespace RockSnifferLib.RSHelpers
 
                         SongDetails details = detailsDict[attr.SongKey];
 
-                        //if (data.SongInfo == null)
-                        //{
-                        // Fill Package Data
-                        //data.Name = attr.DLCKey;
-                        //data.Volume = (attr.SongVolume == 0 ? -12 : attr.SongVolume); //FIXME: too low song volume issue, revert to -6 to fix.
-                        //data.PreviewVolume = (attr.PreviewVolume ?? data.Volume);
-
-                        // Fill SongInfo
-                        //data.SongInfo = new SongInfo { SongDisplayName = attr.SongName, SongDisplayNameSort = attr.SongNameSort, Album = attr.AlbumName, AlbumSort = attr.AlbumNameSort, SongYear = attr.SongYear ?? 0, Artist = attr.ArtistName, ArtistSort = attr.ArtistNameSort, AverageTempo = (int)attr.SongAverageTempo };
-
                         if (details.albumArt == null)
                         {
                             try
@@ -108,7 +101,7 @@ namespace RockSnifferLib.RSHelpers
                             }
                             catch (Exception e)
                             {
-                                Logger.LogError("Warning: couldn't extract album art for {0}: {1}\r\n{2}", attr.SongName, e.Message, e.StackTrace);
+                                Logger.LogError("Warning: couldn't extract album art for {0}", attr.SongName);
 
                                 details.albumArt = new Bitmap(1, 1);
                             }
@@ -121,9 +114,13 @@ namespace RockSnifferLib.RSHelpers
                         details.albumName = attr.AlbumName;
                         details.albumYear = attr.SongYear ?? 0;
                         details.numArrangements++;
-                        //}
                     }
                 }
+
+                sw.Stop();
+
+                Logger.Log("Parsed {0} ({1}mb) in {2}ms and found {3} songs", fileinfo.Name, fileinfo.Length / 1024 / 1024, sw.ElapsedMilliseconds, detailsDict.Count);
+
                 return detailsDict;
             }
 
