@@ -17,6 +17,8 @@ namespace RockSnifferLib.Sniffing
         public int albumYear = 0;
         public int numArrangements = 0;
 
+        public ToolkitDetails toolkit;
+
         [NonSerialized]
         public Image albumArt;
 
@@ -42,31 +44,6 @@ namespace RockSnifferLib.Sniffing
         public bool IsValid()
         {
             return !(songLength == 0 && albumYear == 0 && numArrangements == 0);
-        }
-
-        /// <summary>
-        /// Returns a copy of this object
-        /// </summary>
-        /// <returns></returns>
-        public SongDetails Clone()
-        {
-            SongDetails copy = new SongDetails();
-            copy.songID = songID;
-            copy.songName = songName;
-            copy.artistName = artistName;
-            copy.albumName = albumName;
-
-            copy.songLength = songLength;
-
-            copy.albumYear = albumYear;
-            copy.numArrangements = numArrangements;
-
-            if (albumArt != null)
-            {
-                copy.albumArt = (Bitmap)albumArt.Clone();
-            }
-
-            return copy;
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using RocksmithToolkitLib.DLCPackage;
 using RocksmithToolkitLib.DLCPackage.Manifest2014;
+using RocksmithToolkitLib.Extensions;
 using RocksmithToolkitLib.PsarcLoader;
 using System;
 using System.Collections.Generic;
@@ -100,6 +102,25 @@ namespace RockSnifferLib.RSHelpers
             }
 
             return jsonData;
+        }
+
+        public ToolkitInfo ExtractToolkitInfo()
+        {
+            var tkInfo = new ToolkitInfo();
+            var toolkitVersionEntry = _archive.TOC.FirstOrDefault(x => (x.Name.Equals("toolkit.version")));
+
+            if (toolkitVersionEntry != null)
+            {
+                _archive.InflateEntry(toolkitVersionEntry);
+                toolkitVersionEntry.Data.Position = 0;
+                tkInfo = GeneralExtensions.GetToolkitInfo(new StreamReader(toolkitVersionEntry.Data));
+            }
+            else
+            {
+                tkInfo.PackageAuthor = "Ubisoft";
+            }
+
+            return tkInfo;
         }
     }
 }

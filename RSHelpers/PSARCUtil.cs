@@ -70,16 +70,14 @@ namespace RockSnifferLib.RSHelpers
             var fileinfo = new FileInfo(filepath);
             long size = fileinfo.Length;
 
-            //20 MB to trigger warning
-            if (size > (1024 * 1024) * 20)
-            {
-                //Logger.LogError("WARNING: Processing a very large PSARC archive! {0} ({1:n0} MB)\nThis will take some crunching!", Path.GetFileName(filepath), size / 1024 / 1024);
-            }
-
             var detailsDict = new Dictionary<string, SongDetails>();
 
             using (LazyPsarcLoader loader = new LazyPsarcLoader(filepath))
             {
+                //Extract toolkit info
+                var tkInfo = loader.ExtractToolkitInfo();
+
+                //Extract all arrangements
                 foreach (var v in loader.ExtractJsonManifests())
                 {
                     var attr = v.Entries.ToArray()[0].Value.ToArray()[0].Value;
@@ -114,6 +112,14 @@ namespace RockSnifferLib.RSHelpers
                         details.albumName = attr.AlbumName;
                         details.albumYear = attr.SongYear ?? 0;
                         details.numArrangements++;
+
+                        details.toolkit = new ToolkitDetails
+                        {
+                            version = tkInfo.PackageVersion,
+                            author = tkInfo.PackageAuthor,
+                            comment = tkInfo.PackageComment,
+                            package_version = tkInfo.PackageVersion
+                        };
                     }
                 }
 
