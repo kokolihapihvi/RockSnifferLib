@@ -107,7 +107,7 @@ namespace RockSnifferLib.SysHelpers
         { // Information Class 1
             public UNICODE_STRING Name;
         }
-
+        
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct UNICODE_STRING
         {
@@ -130,16 +130,6 @@ namespace RockSnifferLib.SysHelpers
             public IntPtr Buffer;
         }
 
-        /*
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct UNICODE_STRING
-        {
-            public ushort Length;
-            public ushort MaximumLength;
-            public IntPtr Buffer;
-        }
-        */
-
         [StructLayout(LayoutKind.Sequential)]
         public struct GENERIC_MAPPING
         {
@@ -152,12 +142,13 @@ namespace RockSnifferLib.SysHelpers
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct SYSTEM_HANDLE_INFORMATION
         { // Information Class 16
-            public int ProcessID;
+            public ushort ProcessID;
+            public ushort CreatorBackTraceIndex;
             public byte ObjectTypeNumber;
             public byte Flags; // 0x01 = PROTECT_FROM_CLOSE, 0x02 = INHERIT
             public ushort Handle;
-            public int Object_Pointer;
-            public UInt32 GrantedAccess;
+            public IntPtr Object_Pointer;
+            public ulong GrantedAccess;
         }
 
         public const int MAX_PATH = 260;

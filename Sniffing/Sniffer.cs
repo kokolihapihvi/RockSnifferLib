@@ -174,9 +174,9 @@ namespace RockSnifferLib.Sniffing
                 if (dlcFiles != null && dlcFiles.Count > 0)
                 {
                     //Go through all the dlc files until we find a match
-                    foreach(string dlcFile in dlcFiles)
+                    foreach (string dlcFile in dlcFiles)
                     {
-                        if(await UpdateCurrentDetails(dlcFile))
+                        if (await UpdateCurrentDetails(dlcFile))
                         {
                             break;
                         }
@@ -208,12 +208,20 @@ namespace RockSnifferLib.Sniffing
             }
 
             var strTemp = "";
+            FileDetails fd = null;
 
             //Go through all the handles
             for (int i = 0; i < handles.Count; i++)
             {
                 //Read the filename from the file handle
-                var fd = FileDetails.GetFileDetails(rsProcess.Handle, handles[i]);
+                try
+                {
+                    fd = FileDetails.GetFileDetails(rsProcess.Handle, handles[i]);
+                }
+                catch (Exception e)
+                {
+                    continue;
+                }
 
                 //If getting file details failed for this handle, skip it
                 if (fd == null)
@@ -326,15 +334,15 @@ namespace RockSnifferLib.Sniffing
                 return true;
             }
 
-            if (Logger.logSongDetails)
-            {
-                Logger.Log("Looking for '{0}' in psarc file: {1}", currentMemoryReadout.songID, filepath);
-            }
-
             //If songID is empty, we aren't gonna be able to do anything here
             if (currentMemoryReadout.songID == "")
             {
                 return true;
+            }
+
+            if (Logger.logSongDetails)
+            {
+                Logger.Log("Looking for '{0}' in psarc file: {1}", currentMemoryReadout.songID, filepath);
             }
 
             //Check if this psarc file is cached

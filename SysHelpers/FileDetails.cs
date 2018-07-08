@@ -114,7 +114,11 @@ namespace RockSnifferLib.SysHelpers
             //Read unicode string
             //Try to read unicode string
             strObjectTypeName = Marshal.PtrToStringUni(CustomAPI.Is64Bits() ? new IntPtr(ipTemp.ToInt64()) : new IntPtr(ipTemp.ToInt32()));
-            //strObjectTypeName = Marshal.PtrToStringUni(ipTemp, objObjectType.Name.Length >> 1);
+
+            if (Logger.logFileDetailQuery)
+            {
+                Logger.Log("\t=>{0}", strObjectTypeName);
+            }
 
             //Free memory
             Marshal.FreeHGlobal(ipObjectType);
@@ -166,6 +170,18 @@ namespace RockSnifferLib.SysHelpers
             //TEMPFIX
             ipTemp = objObjectName.Name.Buffer;
 
+            //Check that the string is after the process in memory
+            if(ipTemp.ToInt64() < processHandle.ToInt64())
+            {
+                return null;
+            }
+
+            //MaximumLength should be 2 more than Length
+            if(objObjectName.Name.Length != objObjectName.Name.MaximumLength - 2)
+            {
+                return null;
+            }
+
             if (Logger.logFileDetailQuery)
             {
                 Logger.Log("Reading OBJECT_TYPE_INFORMATION->Name UNICODE_STRING");
@@ -173,6 +189,11 @@ namespace RockSnifferLib.SysHelpers
 
             //Read unicode string
             strObjectName = Marshal.PtrToStringUni(CustomAPI.Is64Bits() ? new IntPtr(ipTemp.ToInt64()) : new IntPtr(ipTemp.ToInt32()));
+
+            if (Logger.logFileDetailQuery)
+            {
+                Logger.Log("\t=>{0}", strObjectName);
+            }
 
             //Free memory
             Marshal.FreeHGlobal(ipObjectName);

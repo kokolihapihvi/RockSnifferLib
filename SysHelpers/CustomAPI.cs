@@ -69,12 +69,12 @@ namespace RockSnifferLib.SysHelpers
                 if (Is64Bits())
                 {
                     shHandle = (Win32API.SYSTEM_HANDLE_INFORMATION)Marshal.PtrToStructure(ipHandle, shHandle.GetType());
-                    ipHandle = new IntPtr(ipHandle.ToInt64() + Marshal.SizeOf(shHandle) + 8);
+                    ipHandle = new IntPtr(ipHandle.ToInt64() + Marshal.SizeOf(shHandle));
                 }
                 else
                 {
                     shHandle = (Win32API.SYSTEM_HANDLE_INFORMATION)Marshal.PtrToStructure(ipHandle, shHandle.GetType());
-                    ipHandle = new IntPtr(ipHandle.ToInt32() + Marshal.SizeOf(shHandle) + 4);
+                    ipHandle = new IntPtr(ipHandle.ToInt32() + Marshal.SizeOf(shHandle) - 4);
                 }
 
                 //Skip if it belongs to another process
