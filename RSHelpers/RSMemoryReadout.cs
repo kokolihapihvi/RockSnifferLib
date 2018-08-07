@@ -12,10 +12,10 @@ namespace RockSnifferLib.RSHelpers
 
         public int totalNotesHit = 0;
         public int currentHitStreak = 0;
-        public int unknown = 0;
         public int highestHitStreak = 0;
         public int totalNotesMissed = 0;
         public int currentMissStreak = 0;
+        public RSMode mode = RSMode.UNKNOWN;
 
         public int TotalNotes {
             get {
@@ -44,9 +44,10 @@ namespace RockSnifferLib.RSHelpers
 
             copy.songID = songID;
 
+            copy.mode = mode;
+
             copy.totalNotesHit = totalNotesHit;
             copy.currentHitStreak = currentHitStreak;
-            copy.unknown = unknown;
             copy.highestHitStreak = highestHitStreak;
             copy.totalNotesMissed = totalNotesMissed;
             copy.currentMissStreak = currentMissStreak;
