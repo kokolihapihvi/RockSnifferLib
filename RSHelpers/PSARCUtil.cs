@@ -1,5 +1,4 @@
-﻿using RocksmithToolkitLib.PsarcLoader;
-using RockSnifferLib.Logging;
+﻿using RockSnifferLib.Logging;
 using RockSnifferLib.Sniffing;
 using System;
 using System.Collections.Generic;

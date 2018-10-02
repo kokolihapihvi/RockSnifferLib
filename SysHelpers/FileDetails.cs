@@ -40,7 +40,13 @@ namespace RockSnifferLib.SysHelpers
 
             //Duplicate handle into our process, return if not successful
             if (!Win32API.DuplicateHandle(processHandle, sYSTEM_HANDLE_INFORMATION.Handle, Win32API.GetCurrentProcess(), out ipHandle, 0, false, Win32API.DUPLICATE_SAME_ACCESS))
+            {
+                if (Logger.logFileDetailQuery)
+                {
+                    Logger.Log("Failed to duplicate handle {0}", sYSTEM_HANDLE_INFORMATION.Handle);
+                }
                 return null;
+            }
 
             if (Logger.logFileDetailQuery)
             {
