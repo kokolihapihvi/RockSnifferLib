@@ -89,6 +89,7 @@ namespace RockSnifferLib.Sniffing
 
         private async void DoMemoryReadout()
         {
+            float lastTimer = currentMemoryReadout.songTimer;
             while (running)
             {
                 try
@@ -106,6 +107,18 @@ namespace RockSnifferLib.Sniffing
 
                 OnMemoryReadout?.Invoke(this, new OnMemoryReadoutArgs() { memoryReadout = currentMemoryReadout });
 
+                switch (Environment.OSVersion.Platform)
+                {
+                    case PlatformID.MacOSX:
+                    case PlatformID.Unix:
+                        if (Math.Abs(currentMemoryReadout.songTimer - lastTimer) > 1)
+                        {
+                            // scan for note data from memory if required
+                            memReader.DoPointerScan();
+                            lastTimer = currentMemoryReadout.songTimer;
+                        }
+                        break;
+                }
                 //Print memreadout if debug is enabled
                 currentMemoryReadout.Print();
 
@@ -129,7 +142,6 @@ namespace RockSnifferLib.Sniffing
                         Logger.LogError("Error while processing state machine: {0} {1}", e.GetType(), e.Message);
                     }
                 }
-
                 //Delay for 100 milliseconds
                 await Task.Delay(100);
             }
@@ -168,7 +180,8 @@ namespace RockSnifferLib.Sniffing
             if (currentState == SnifferState.IN_MENUS || (currentCDLCDetails.songID.ToLowerInvariant() != currentMemoryReadout.songID.ToLowerInvariant()))
             {
                 //Get a list of files rocksmith is accessing
-                List<string> dlcFiles = SniffFileHandles();
+                //TODO: fix for mac
+                List<string> dlcFiles = new List<string>();//SniffFileHandles();
 
                 //If the list exists
                 if (dlcFiles != null && dlcFiles.Count > 0)
@@ -184,6 +197,7 @@ namespace RockSnifferLib.Sniffing
                 }
             }
         }
+
 
         /// <summary>
         /// Stops the sniffer, stopping all async tasks

@@ -111,5 +111,10 @@ namespace RockSnifferLib.SysHelpers
 
             return b64 ?? true;
         }
+
+        public static bool IsRunningOnMono ()
+        {
+            return Type.GetType ("Mono.Runtime") != null;
+        }
     }
 }
