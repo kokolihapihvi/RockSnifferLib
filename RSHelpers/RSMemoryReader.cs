@@ -28,6 +28,7 @@ namespace RockSnifferLib.RSHelpers
             this.PInfo.PID = (ulong)rsProcess.Id;
         }
 
+        /* helper function for scanning an individual region */
         public List<ulong> DoMemoryScan(ulong dataIndex, ulong Address, ulong size, byte[] bytes)
         {
             ulong alignment = 4;
@@ -48,6 +49,7 @@ namespace RockSnifferLib.RSHelpers
             return indices;
         }
 
+        /* scan memory regions looking for NOTE_DATA_MAGIC */
         public void DoPointerScan()
         {
             if (CheckForValidNoteDataAddress(NoteDataMacAddress))
@@ -106,6 +108,8 @@ namespace RockSnifferLib.RSHelpers
                 }
             });
         }
+
+        /* check if the NoteData address is accurate or not */
         public bool CheckForValidNoteDataAddress(IntPtr address)
         {
             if (address == IntPtr.Zero)
@@ -144,6 +148,7 @@ namespace RockSnifferLib.RSHelpers
             {
                 case PlatformID.MacOSX:
                 case PlatformID.Unix:
+                    /* more info in MacOSAPI.cs */
                     bytes = MemoryHelper.ReadBytesFromMemory(PInfo, FollowPointers(0x0147B678, new int[] { 0xC4, 0x264, 0xBC, 0x0 }), 128);
                     break;
                 default:
@@ -182,6 +187,7 @@ namespace RockSnifferLib.RSHelpers
             {
                 case PlatformID.MacOSX:
                 case PlatformID.Unix:
+                    /* more info in MacOSAPI.cs */
                     ReadSongTimer(FollowPointers(0x01473BFC, new int[] { 0xC, 0x698, 0xD8 }));
                     IntPtr noteDataRoot = IntPtr.Subtract(NoteDataMacAddress, 0x0008);
                     if (!ReadNoteData(noteDataRoot))

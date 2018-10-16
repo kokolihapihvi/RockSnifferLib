@@ -1,6 +1,18 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
+/*
+    Pointer Scan Info: 
+    
+    CheatManager 6.2M doesnt have pointer scanner support so Bit-Slicer was used to find the pointer chains for macos. 
+    The original repo is at https://github.com/zorgiepoo/Bit-Slicer, (pointer_scanner branch). A fork with updated master
+    and working pointer scan is maintained here https://github.com/sandiz/Bit-Slicer/tree/pointer_scanner
+
+    The tool is limited and gives a lot of false positives, so far pointer chains for song_id and song_timer has been found
+    for note data RockSniffer will search the memory first for the values.
+
+    TODO: find pointer chain for note data
+ */
 namespace RockSnifferLib.SysHelpers
 {
     public static class MacOSAPI
