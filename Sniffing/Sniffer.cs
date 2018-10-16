@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 namespace RockSnifferLib.Sniffing
 {
@@ -181,7 +182,7 @@ namespace RockSnifferLib.Sniffing
             {
                 //Get a list of files rocksmith is accessing
                 //TODO: fix for mac
-                List<string> dlcFiles = new List<string>();//SniffFileHandles();
+                List<string> dlcFiles = SniffFileHandles();
 
                 //If the list exists
                 if (dlcFiles != null && dlcFiles.Count > 0)
@@ -211,32 +212,58 @@ namespace RockSnifferLib.Sniffing
         {
             //Build a list of all song files being accessed
             List<string> songFiles = new List<string>();
-
-            //Get all handles from the rocksmith process
-            var handles = CustomAPI.GetHandles(rsProcess);
-
-            //If there aren't any handles, return
-            if (handles == null)
+            List<FileDetails> fds = new List<FileDetails>();
+            switch (Environment.OSVersion.Platform)
             {
-                return null;
+                case PlatformID.MacOSX:
+                case PlatformID.Unix:
+                    int numPath = 0;
+                    IntPtr pathPointers = MacOSAPI.proc_pidinfo_wrapper(memReader.PInfo.PID, out numPath);
+                    //Logger.Log("Num Paths: " + numPath);
+                    IntPtr[] pIntPtrArray = new IntPtr[numPath];
+                    var ManagedStringArray = new string[numPath];
+
+                    Marshal.Copy(pathPointers, pIntPtrArray, 0, numPath);
+
+                    for (int i = 0; i < numPath; i++)
+                    {
+                        ManagedStringArray[i] = Marshal.PtrToStringAnsi(pIntPtrArray[i]);
+                        fds.Add(new FileDetails() { Name = ManagedStringArray[i] });
+                    }
+                    MacOSAPI.free_wrapper(pathPointers);
+                    break;
+                default:
+                    //Get all handles from the rocksmith process
+                    var handles = CustomAPI.GetHandles(rsProcess);
+
+                    //If there aren't any handles, return
+                    if (handles == null)
+                    {
+                        return null;
+                    }
+                    for (int i = 0; i < handles.Count; i++)
+                    {
+                        //Read the filename from the file handle
+                        try
+                        {
+                            var fd = FileDetails.GetFileDetails(rsProcess.Handle, handles[i]);
+                            fds.Add(fd);
+                        }
+                        catch (Exception)
+                        {
+                            continue;
+                        }
+                    }
+
+                    break;
             }
 
             var strTemp = "";
-            FileDetails fd = null;
 
             //Go through all the handles
-            for (int i = 0; i < handles.Count; i++)
+            for (int i = 0; i < fds.Count; i++)
             {
-                //Read the filename from the file handle
-                try
-                {
-                    fd = FileDetails.GetFileDetails(rsProcess.Handle, handles[i]);
-                }
-                catch (Exception e)
-                {
-                    continue;
-                }
-
+                FileDetails fd = fds[i];
                 //If getting file details failed for this handle, skip it
                 if (fd == null)
                 {

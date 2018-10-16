@@ -21,6 +21,10 @@ namespace RockSnifferLib.SysHelpers
         public static extern int mach_vm_region_wrapper(ulong TargetTask, out ulong Address, out ulong Size, out int Prot);
         [DllImport("libMacOSAPI.dylib")]
         public static extern int mach_vm_region_recurse_wrapper(ulong TargetTask, out ulong Address, out ulong Size, out UInt32 userTag);
+        [DllImport("libMacOSAPI.dylib")]
+        public static extern IntPtr proc_pidinfo_wrapper(ulong pid, out int numPath);
+        [DllImport("libMacOSAPI.dylib")]
+        public static extern void free_wrapper(IntPtr ptr);
 
     }
 }

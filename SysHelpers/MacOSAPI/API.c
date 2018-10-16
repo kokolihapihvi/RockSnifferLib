@@ -6,6 +6,10 @@
 #include <mach/vm_map.h>
 #include <stdio.h>
 #include <mach-o/loader.h>
+#include <libproc.h>
+#include <sys/proc_info.h>
+#include <stdlib.h>
+
 kern_return_t
 find_main_binary(pid_t pid, mach_vm_address_t *main_address);
 
@@ -31,6 +35,7 @@ EXPORT int find_main_binary_wrapper(unsigned int pid, unsigned long long *vmoffs
     fflush(stdout);
     return ret;
 }
+
 EXPORT int mach_vm_region_recurse_wrapper(vm_map_t target_task, mach_vm_address_t *addr,
                                           mach_vm_size_t *lsize, unsigned int *user_tag)
 {
@@ -53,6 +58,7 @@ EXPORT int mach_vm_region_recurse_wrapper(vm_map_t target_task, mach_vm_address_
     }
     return success;
 }
+
 EXPORT int mach_vm_region_wrapper(vm_map_t target_task, mach_vm_address_t *addr, mach_vm_size_t *lsize, int *protection)
 {
     vm_region_basic_info_data_64_t info;
@@ -65,7 +71,55 @@ EXPORT int mach_vm_region_wrapper(vm_map_t target_task, mach_vm_address_t *addr,
 
     return ret;
 }
+EXPORT void free_wrapper(void *ptr)
+{
+    if (ptr)
+    {
+        free(ptr);
+    }
+}
+EXPORT char **proc_pidinfo_wrapper(unsigned int pid, int *numPaths)
+{
 
+    // Figure out the size of the buffer needed to hold the list of open FDs
+    int bufferSize = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, 0, 0);
+    if (bufferSize == -1)
+        return NULL;
+
+    // Get the list of open FDs
+    struct proc_fdinfo *procFDInfo = (struct proc_fdinfo *)malloc(bufferSize);
+    if (!procFDInfo)
+        return NULL;
+
+    proc_pidinfo(pid, PROC_PIDLISTFDS, 0, procFDInfo, bufferSize);
+    int numberOfProcFDs = bufferSize / PROC_PIDLISTFD_SIZE;
+
+    char **pathPointers = calloc(sizeof(char *), numberOfProcFDs);
+    int j = 0;
+    for (int i = 0; i < numberOfProcFDs; i++)
+    {
+        if (procFDInfo[i].proc_fdtype == PROX_FDTYPE_VNODE)
+        {
+            // A file is open
+            struct vnode_fdinfowithpath vnodeInfo;
+            int bytesUsed = proc_pidfdinfo(pid, procFDInfo[i].proc_fd, PROC_PIDFDVNODEPATHINFO, &vnodeInfo, PROC_PIDFDVNODEPATHINFO_SIZE);
+            if (bytesUsed == PROC_PIDFDVNODEPATHINFO_SIZE)
+                pathPointers[j++] = strdup(vnodeInfo.pvip.vip_path);
+        }
+    }
+    //for (int k = 0; k < j; k++)
+    //{
+    //    printf("path: %s\n", pathPointers[k]);
+    //}
+    free(procFDInfo);
+    *numPaths = j;
+    return pathPointers;
+}
+
+EXPORT int proc_pidfdinfo_wrapper()
+{
+    return 0; //proc_pidfdinfo();
+}
 /*
  * find main binary by iterating memory region
  * assumes there's only one binary with filetype == MH_EXECUTE

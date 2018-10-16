@@ -17,7 +17,7 @@ namespace RockSnifferLib.RSHelpers
         private RSMemoryReadout readout = new RSMemoryReadout();
         private RSMemoryReadout prevReadout = new RSMemoryReadout();
 
-        ProcessInfo PInfo = new ProcessInfo();
+        public ProcessInfo PInfo = new ProcessInfo();
         IntPtr NoteDataMacAddress = IntPtr.Zero;
 
         public RSMemoryReader(Process rsProcess)
@@ -93,7 +93,8 @@ namespace RockSnifferLib.RSHelpers
                                 UInt32 tag = MemoryHelper.GetUserTag(this.PInfo, address, size);
                                 if (tag == 2 && CheckForValidNoteDataAddress(ptr)) /* VM_MEMORY_MALLOC_SMALL */
                                 {
-                                    Logger.Log("Region: {0} Address: {1} Tag: {2}", i, ptr.ToString("X8"), tag);
+                                    if (Logger.logMemoryReadout)
+                                        Logger.Log("Region: {0} Address: {1} Tag: {2}", i, ptr.ToString("X8"), tag);
                                     NoteDataMacAddress = ptr;
                                     loopState.Stop();
                                     break;
