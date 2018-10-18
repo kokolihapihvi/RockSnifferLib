@@ -97,7 +97,7 @@ namespace RockSnifferLib.RSHelpers
                             {
                                 details.albumArt = ExtractAlbumArt(loader, attr.AlbumArt);
                             }
-                            catch (Exception e)
+                            catch (Exception)
                             {
                                 Logger.LogError("Warning: couldn't extract album art for {0}", attr.SongName);
 

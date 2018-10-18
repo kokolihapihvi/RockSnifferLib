@@ -70,8 +70,6 @@ namespace RockSnifferLib.Sniffing
         /// Boolean to let async tasks finish
         /// </summary>
         private bool running = true;
-        [Flags]
-        public enum SnifferActions { NONE = 0, MEMORY_READOUT = 1, STATE_MACHINE = 2, SNIFF_FILE_HANDLES = 4 }
 
         /// <summary>
         /// Instantiate a new Sniffer on process, using cache
@@ -79,16 +77,16 @@ namespace RockSnifferLib.Sniffing
         /// <param name="rsProcess"></param>
         /// <param name="cache"></param>
         /// <param name="config"></param>
-        public Sniffer(Process rsProcess, ICache cache, SnifferActions actions)
+        public Sniffer(Process rsProcess, ICache cache)
         {
             this.rsProcess = rsProcess;
             this.cache = cache;
 
             memReader = new RSMemoryReader(rsProcess);
 
-            if (actions.HasFlag(SnifferActions.MEMORY_READOUT)) DoMemoryReadout();
-            if (actions.HasFlag(SnifferActions.STATE_MACHINE)) DoStateMachine();
-            if (actions.HasFlag(SnifferActions.SNIFF_FILE_HANDLES)) DoSniffing();
+            DoMemoryReadout();
+            DoStateMachine();
+            DoSniffing();
         }
 
         private async void DoMemoryReadout()
