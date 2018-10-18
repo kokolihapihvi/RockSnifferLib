@@ -175,11 +175,14 @@ namespace RockSnifferLib.RSHelpers
                     /* more info in MacOSAPI.cs */
                     ReadSongTimer(FollowPointers(0x01473BFC, new int[] { 0xC, 0x698, 0xD8 }));
                     IntPtr noteDataRoot = IntPtr.Subtract(NoteDataMacAddress, 0x0008);
-                    if (!ReadNoteData(noteDataRoot))
+                    if (CheckForValidNoteDataAddress(NoteDataMacAddress))
                     {
                         if (!ReadNoteData(noteDataRoot))
                         {
-                            readout.mode = RSMode.UNKNOWN;
+                            if (!ReadNoteData(noteDataRoot))
+                            {
+                                readout.mode = RSMode.UNKNOWN;
+                            }
                         }
                     }
                     break;
