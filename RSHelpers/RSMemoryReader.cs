@@ -26,6 +26,14 @@ namespace RockSnifferLib.RSHelpers
 
             this.PInfo.rsProcessHandle = rsProcess.Handle;
             this.PInfo.PID = (ulong)rsProcess.Id;
+
+            switch (Environment.OSVersion.Platform)
+            {
+                case PlatformID.Unix:
+                case PlatformID.MacOSX:
+                    MacOSAPI.task_for_pid_wrapper(this.PInfo.PID, out this.PInfo.Task);
+                    break;
+            }
         }
 
         /* scan memory regions looking for NOTE_DATA_MAGIC */
@@ -68,8 +76,6 @@ namespace RockSnifferLib.RSHelpers
                     ulong idx = MemoryHelper.ScanMem(this.PInfo, (IntPtr)address, (int)size, dataIndex, NOTE_DATA_MAGIC);
                     if (idx == 0)
                         return;
-                    //Logger.Log(string.Format("Read region {0} from memory, di: {1} da: {2} ea: {3} addr: {4} ",
-                    //            i, dataIndex, dataAlignment, endAddress, address));
                     IntPtr ptr = (IntPtr)(address + idx);
                     UInt32 tag = MemoryHelper.GetUserTag(this.PInfo, address, size);
                     if (tag == 2 && CheckForValidNoteDataAddress(ptr)) // VM_MEMORY_MALLOC_SMALL == 2
@@ -85,7 +91,6 @@ namespace RockSnifferLib.RSHelpers
                 Logger.Log("Regions Processed: " + regionCounter);
             //var mem = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
             //Logger.Log(string.Format("Memory@PreGC: {0}mb", mem));
-            //Logger.Log("Collecting GC");
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();

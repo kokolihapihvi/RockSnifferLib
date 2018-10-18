@@ -12,17 +12,15 @@ namespace RockSnifferLib.SysHelpers
         public Process rsProcess;
         public IntPtr rsProcessHandle;
         public ulong PID;
+        /* mac os task port */
+        public uint Task;
     }
     class MemoryHelper
     {
-        /* mac os task port */
-        static uint task = 0;
         /* Scan Memory pointed by ptr for the magic int  */
         public static ulong ScanMem(ProcessInfo pInfo, IntPtr ptr, int bytesRead, ulong dataIndex, int magic)
         {
-            if (task == 0)
-                MacOSAPI.task_for_pid_wrapper(pInfo.PID, out task);
-            return MacOSAPI.scan_mem(task, (ulong)ptr, (ulong)bytesRead, dataIndex, magic);
+            return MacOSAPI.scan_mem(pInfo.Task, (ulong)ptr, (ulong)bytesRead, dataIndex, magic);
         }
         /// <summary>
         /// Read a number of bytes from a processes memory into given byte array buffer
@@ -38,14 +36,12 @@ namespace RockSnifferLib.SysHelpers
             {
                 case PlatformID.MacOSX:
                 case PlatformID.Unix:
-                    if (task == 0)
-                        MacOSAPI.task_for_pid_wrapper(pInfo.PID, out task);
                     IntPtr ptr;
-                    int ret = MacOSAPI.vm_read_wrapper(task, (ulong)address, (ulong)bytes, out ptr, out bytesRead);
+                    int ret = MacOSAPI.vm_read_wrapper(pInfo.Task, (ulong)address, (ulong)bytes, out ptr, out bytesRead);
                     if (ret == 0)
                     {
                         Marshal.Copy(ptr, buffer, 0, bytesRead);
-                        MacOSAPI.vm_deallocate_wrapper(task, (ulong)ptr, (ulong)bytesRead);
+                        MacOSAPI.vm_deallocate_wrapper(pInfo.Task, (ulong)ptr, (ulong)bytesRead);
                     }
                     break;
                 default:
@@ -71,16 +67,13 @@ namespace RockSnifferLib.SysHelpers
             {
                 case PlatformID.MacOSX:
                 case PlatformID.Unix:
-                    if (task == 0)
-                        MacOSAPI.task_for_pid_wrapper(pInfo.PID, out task);
-
                     IntPtr ptr;
-                    int ret = MacOSAPI.vm_read_wrapper(task, (ulong)address, (ulong)bytes, out ptr, out bytesRead);
+                    int ret = MacOSAPI.vm_read_wrapper(pInfo.Task, (ulong)address, (ulong)bytes, out ptr, out bytesRead);
 
                     if (ret == 0)
                     {
                         Marshal.Copy(ptr, buf, 0, bytesRead);
-                        MacOSAPI.vm_deallocate_wrapper(task, (ulong)ptr, (ulong)bytesRead);
+                        MacOSAPI.vm_deallocate_wrapper(pInfo.Task, (ulong)ptr, (ulong)bytesRead);
                     }
                     break;
                 default:
@@ -149,10 +142,8 @@ namespace RockSnifferLib.SysHelpers
         /// <returns></returns>
         public static UInt32 GetUserTag(ProcessInfo pInfo, ulong Address, ulong size)
         {
-            if (task == 0)
-                MacOSAPI.task_for_pid_wrapper(pInfo.PID, out task);
             UInt32 userTag = 0;
-            int ret = MacOSAPI.mach_vm_region_recurse_wrapper(task, out Address, out size, out userTag);
+            int ret = MacOSAPI.mach_vm_region_recurse_wrapper(pInfo.Task, out Address, out size, out userTag);
             return userTag;
         }
 
@@ -165,15 +156,13 @@ namespace RockSnifferLib.SysHelpers
         /// <returns></returns>
         public static List<MacOSAPI.Region> GetAllRegions(ProcessInfo pInfo, ulong begin, ulong end)
         {
-            if (task == 0)
-                MacOSAPI.task_for_pid_wrapper(pInfo.PID, out task);
             List<MacOSAPI.Region> Regions = new List<MacOSAPI.Region>();
             ulong address = 0;
             while (true)
             {
                 ulong size = 0;
                 int protection = 0;
-                int ret = MacOSAPI.mach_vm_region_wrapper(task, out address, out size, out protection);
+                int ret = MacOSAPI.mach_vm_region_wrapper(pInfo.Task, out address, out size, out protection);
                 if (ret != 0)
                     break;
                 //Logger.Log(string.Format("Ret: {0} Address: {1} Size: {2}", ret, address, size));
