@@ -37,6 +37,11 @@ namespace RockSnifferLib.SysHelpers
         public static extern IntPtr proc_pidinfo_wrapper(ulong pid, out int numPath);
         [DllImport("libMacOSAPI.dylib")]
         public static extern void free_wrapper(IntPtr ptr);
+        [DllImport("libMacOSAPI.dylib")]
+        public static extern int vm_deallocate_wrapper(ulong TargetTask, ulong Address, ulong Size);
+        [DllImport("libMacOSAPI.dylib")]
+        public static extern ulong scan_mem(ulong TargetTask, ulong Address, ulong Size, ulong DataIndex, int magic);
+
 
     }
 }

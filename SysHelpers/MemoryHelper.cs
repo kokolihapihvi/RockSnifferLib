@@ -17,6 +17,13 @@ namespace RockSnifferLib.SysHelpers
     {
         /* mac os task port */
         static uint task = 0;
+        /* Scan Memory pointed by ptr for the magic int  */
+        public static ulong ScanMem(ProcessInfo pInfo, IntPtr ptr, int bytesRead, ulong dataIndex, int magic)
+        {
+            if (task == 0)
+                MacOSAPI.task_for_pid_wrapper(pInfo.PID, out task);
+            return MacOSAPI.scan_mem(task, (ulong)ptr, (ulong)bytesRead, dataIndex, magic);
+        }
         /// <summary>
         /// Read a number of bytes from a processes memory into given byte array buffer
         /// </summary>
@@ -36,7 +43,10 @@ namespace RockSnifferLib.SysHelpers
                     IntPtr ptr;
                     int ret = MacOSAPI.vm_read_wrapper(task, (ulong)address, (ulong)bytes, out ptr, out bytesRead);
                     if (ret == 0)
+                    {
                         Marshal.Copy(ptr, buffer, 0, bytesRead);
+                        MacOSAPI.vm_deallocate_wrapper(task, (ulong)ptr, (ulong)bytesRead);
+                    }
                     break;
                 default:
                     Win32API.ReadProcessMemory((int)pInfo.rsProcessHandle, (int)address, buffer, bytes, ref bytesRead);
@@ -68,7 +78,10 @@ namespace RockSnifferLib.SysHelpers
                     int ret = MacOSAPI.vm_read_wrapper(task, (ulong)address, (ulong)bytes, out ptr, out bytesRead);
 
                     if (ret == 0)
+                    {
                         Marshal.Copy(ptr, buf, 0, bytesRead);
+                        MacOSAPI.vm_deallocate_wrapper(task, (ulong)ptr, (ulong)bytesRead);
+                    }
                     break;
                 default:
                     Win32API.ReadProcessMemory((int)pInfo.rsProcessHandle, (int)address, buf, bytes, ref bytesRead);
@@ -170,7 +183,7 @@ namespace RockSnifferLib.SysHelpers
                     Size = size,
                     Protection = protection
                 };
-                if (reg.Address < end && (reg.Address + size) > begin && ((reg.Protection & 0x01) == 1))
+                if (reg.Address < end && (reg.Address + size) > begin && ((reg.Protection & 0x02) == 2)) /* writable protection */
                     Regions.Add(reg);
                 address += size;
             }

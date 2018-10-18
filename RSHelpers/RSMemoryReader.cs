@@ -28,27 +28,6 @@ namespace RockSnifferLib.RSHelpers
             this.PInfo.PID = (ulong)rsProcess.Id;
         }
 
-        /* helper function for scanning an individual region */
-        public List<ulong> DoMemoryScan(ulong dataIndex, ulong Address, ulong size, byte[] bytes)
-        {
-            ulong alignment = 4;
-            ulong endLimit = size - 4;
-            List<ulong> indices = new List<ulong>();
-            while (dataIndex <= endLimit)
-            {
-                ulong numberOfStepsToTake = ((endLimit + alignment - dataIndex) / alignment);
-                for (ulong stepIndex = 0; stepIndex < numberOfStepsToTake; stepIndex++)
-                {
-                    //Logger.Log(string.Format("di: {0} si: {1}", (int)dataIndex, stepIndex));
-                    int val = BitConverter.ToInt32(bytes, (int)dataIndex);
-                    if (val == NOTE_DATA_MAGIC) /* magic number */
-                        indices.Add(dataIndex);
-                    dataIndex += alignment;
-                }
-            }
-            return indices;
-        }
-
         /* scan memory regions looking for NOTE_DATA_MAGIC */
         public void DoPointerScan()
         {
@@ -58,9 +37,13 @@ namespace RockSnifferLib.RSHelpers
             ulong endAddress = 0x00007FFFFFE00000;
             ulong dataAlignment = 4;
             var regions = MemoryHelper.GetAllRegions(this.PInfo, beginAddress, endAddress);
-            //Logger.Log("Regions Found: " + regions.Count);
+            regions.Reverse();
+            if (Logger.logMemoryReadout)
+                Logger.Log("Regions Found: " + regions.Count);
+            int regionCounter = 0;
             Parallel.For(0, regions.Count, (i, loopState) =>
             {
+                Interlocked.Increment(ref regionCounter);
                 var region = regions[i];
                 var address = region.Address;
                 var size = region.Size;
@@ -80,33 +63,35 @@ namespace RockSnifferLib.RSHelpers
                     {
                         size = endAddress - address;
                     }
-                    byte[] bytes = new byte[size];
-                    int read = MemoryHelper.ReadBytesFromMemory(this.PInfo, (IntPtr)address, (int)size, ref bytes);
-                    if (read == (int)size)
+                    if (loopState.IsStopped)
+                        return;
+                    ulong idx = MemoryHelper.ScanMem(this.PInfo, (IntPtr)address, (int)size, dataIndex, NOTE_DATA_MAGIC);
+                    if (idx == 0)
+                        return;
+                    //Logger.Log(string.Format("Read region {0} from memory, di: {1} da: {2} ea: {3} addr: {4} ",
+                    //            i, dataIndex, dataAlignment, endAddress, address));
+                    IntPtr ptr = (IntPtr)(address + idx);
+                    UInt32 tag = MemoryHelper.GetUserTag(this.PInfo, address, size);
+                    if (tag == 2 && CheckForValidNoteDataAddress(ptr)) // VM_MEMORY_MALLOC_SMALL == 2
                     {
-                        var foundIndices = DoMemoryScan(dataIndex, address, size, bytes);
-                        if (foundIndices.Count > 0)
-                        {
-                            foreach (var index in foundIndices)
-                            {
-                                //Logger.Log(string.Format("Read region {0} from memory, di: {1} da: {2} ea: {3} addr: {4} ",
-                                //i, dataIndex, dataAlignment, endAddress, address));
-                                IntPtr ptr = (IntPtr)(address + index);
-                                UInt32 tag = MemoryHelper.GetUserTag(this.PInfo, address, size);
-                                if (tag == 2 && CheckForValidNoteDataAddress(ptr)) /* VM_MEMORY_MALLOC_SMALL */
-                                {
-                                    if (Logger.logMemoryReadout)
-                                        Logger.Log("Region: {0} Address: {1} Tag: {2}", i, ptr.ToString("X8"), tag);
-                                    NoteDataMacAddress = ptr;
-                                    loopState.Stop();
-                                    break;
-                                }
-
-                            }
-                        }
+                        if (Logger.logMemoryReadout)
+                            Logger.Log("Region: {0} Address: {1} Tag: {2}", i, ptr.ToString("X8"), tag);
+                        NoteDataMacAddress = ptr;
+                        loopState.Stop();
                     }
                 }
             });
+            if (Logger.logMemoryReadout)
+                Logger.Log("Regions Processed: " + regionCounter);
+            //var mem = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
+            //Logger.Log(string.Format("Memory@PreGC: {0}mb", mem));
+            //Logger.Log("Collecting GC");
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            //mem = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
+            //Logger.Log(string.Format("Memory@afterGC: {0}mb", mem));
         }
 
         /* check if the NoteData address is accurate or not */

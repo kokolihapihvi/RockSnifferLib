@@ -70,22 +70,25 @@ namespace RockSnifferLib.Sniffing
         /// Boolean to let async tasks finish
         /// </summary>
         private bool running = true;
+        [Flags]
+        public enum SnifferActions { NONE = 0, MEMORY_READOUT = 1, STATE_MACHINE = 2, SNIFF_FILE_HANDLES = 4 }
 
         /// <summary>
         /// Instantiate a new Sniffer on process, using cache
         /// </summary>
         /// <param name="rsProcess"></param>
         /// <param name="cache"></param>
-        public Sniffer(Process rsProcess, ICache cache)
+        /// <param name="config"></param>
+        public Sniffer(Process rsProcess, ICache cache, SnifferActions actions)
         {
             this.rsProcess = rsProcess;
             this.cache = cache;
 
             memReader = new RSMemoryReader(rsProcess);
 
-            DoMemoryReadout();
-            DoStateMachine();
-            DoSniffing();
+            if (actions.HasFlag(SnifferActions.MEMORY_READOUT)) DoMemoryReadout();
+            if (actions.HasFlag(SnifferActions.STATE_MACHINE)) DoStateMachine();
+            if (actions.HasFlag(SnifferActions.SNIFF_FILE_HANDLES)) DoSniffing();
         }
 
         private async void DoMemoryReadout()
@@ -115,6 +118,9 @@ namespace RockSnifferLib.Sniffing
                         if (Math.Abs(currentMemoryReadout.songTimer - lastTimer) > 1)
                         {
                             // scan for note data from memory if required
+
+                            //var mem = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
+                            //Logger.Log(string.Format("Memory@tick: {0}mb", mem));
                             memReader.DoPointerScan();
                             lastTimer = currentMemoryReadout.songTimer;
                         }
@@ -181,7 +187,6 @@ namespace RockSnifferLib.Sniffing
             if (currentState == SnifferState.IN_MENUS || (currentCDLCDetails.songID.ToLowerInvariant() != currentMemoryReadout.songID.ToLowerInvariant()))
             {
                 //Get a list of files rocksmith is accessing
-                //TODO: fix for mac
                 List<string> dlcFiles = SniffFileHandles();
 
                 //If the list exists

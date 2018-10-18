@@ -23,6 +23,14 @@ EXPORT int vm_read_wrapper(
     return vm_read(target_task, address, size, data, dataCnt);
 }
 
+EXPORT int vm_deallocate_wrapper(
+    vm_map_t target_task,
+    vm_address_t address,
+    vm_size_t size)
+{
+    return vm_deallocate(target_task, address, size);
+}
+
 EXPORT int task_for_pid_wrapper(unsigned int process, unsigned int *tout)
 {
     return task_for_pid(current_task(), process, tout);
@@ -71,6 +79,7 @@ EXPORT int mach_vm_region_wrapper(vm_map_t target_task, mach_vm_address_t *addr,
 
     return ret;
 }
+
 EXPORT void free_wrapper(void *ptr)
 {
     if (ptr)
@@ -78,6 +87,7 @@ EXPORT void free_wrapper(void *ptr)
         free(ptr);
     }
 }
+
 EXPORT char **proc_pidinfo_wrapper(unsigned int pid, int *numPaths)
 {
 
@@ -114,6 +124,40 @@ EXPORT char **proc_pidinfo_wrapper(unsigned int pid, int *numPaths)
     free(procFDInfo);
     *numPaths = j;
     return pathPointers;
+}
+
+EXPORT unsigned long scan_mem(unsigned int target_task,
+                              unsigned long address,
+                              unsigned long size,
+                              unsigned long di,
+                              int magic)
+{
+    unsigned long dataIndex = di;
+    mach_vm_size_t curr_bytes_read = 0;
+    vm_offset_t vm_memory = (vm_offset_t)malloc(size);
+    mach_vm_read_overwrite(target_task, address, size, vm_memory, &curr_bytes_read);
+    if (curr_bytes_read == size)
+    {
+        unsigned long alignment = 4;
+        unsigned long endLimit = size - 4;
+        while (dataIndex <= endLimit)
+        {
+            unsigned long numberOfStepsToTake = ((endLimit + alignment - dataIndex) / alignment);
+            for (unsigned long stepIndex = 0; stepIndex < numberOfStepsToTake; stepIndex++)
+            {
+                //int val = BitConverter.ToInt32(bytes, (int)dataIndex);
+                int val = *(int *)((char *)vm_memory + dataIndex);
+                if (val == magic) /* magic number */
+                {
+                    fflush(stdout);
+                    return dataIndex;
+                }
+                dataIndex += alignment;
+            }
+        }
+    }
+    free((void *)vm_memory);
+    return 0;
 }
 
 EXPORT int proc_pidfdinfo_wrapper()
