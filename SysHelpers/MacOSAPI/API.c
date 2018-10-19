@@ -20,7 +20,16 @@ EXPORT int vm_read_wrapper(
     unsigned long *data,
     unsigned int *dataCnt)
 {
-    return vm_read(target_task, address, size, data, dataCnt);
+    //return vm_read(target_task, address, size, data, dataCnt);
+    vm_offset_t curr_bytes_read = 0;
+    vm_address_t vm_memory = (vm_address_t)malloc(size);
+    int ret = vm_read_overwrite(target_task, address, size, vm_memory, &curr_bytes_read);
+    //int ret = vm_read(target_task, address, size, data, &curr_bytes_read);
+    //printf("bytes read: %lu\n", curr_bytes_read);
+    *data = vm_memory;
+    *dataCnt = (unsigned int)curr_bytes_read;
+    fflush(stdout);
+    return ret;
 }
 
 EXPORT int vm_deallocate_wrapper(
@@ -150,6 +159,7 @@ EXPORT unsigned long scan_mem(unsigned int target_task,
                 if (val == magic) /* magic number */
                 {
                     fflush(stdout);
+                    free((void *)vm_memory);
                     return dataIndex;
                 }
                 dataIndex += alignment;

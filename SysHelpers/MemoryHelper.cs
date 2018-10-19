@@ -69,12 +69,13 @@ namespace RockSnifferLib.SysHelpers
                 case PlatformID.Unix:
                     IntPtr ptr;
                     int ret = MacOSAPI.vm_read_wrapper(pInfo.Task, (ulong)address, (ulong)bytes, out ptr, out bytesRead);
-
+                    //Logger.Log(bytes.ToString() + " " + bytesRead.ToString() + " " + ret.ToString());
                     if (ret == 0)
                     {
                         Marshal.Copy(ptr, buf, 0, bytesRead);
                         MacOSAPI.vm_deallocate_wrapper(pInfo.Task, (ulong)ptr, (ulong)bytesRead);
                     }
+                    MacOSAPI.free_wrapper(ptr);
                     break;
                 default:
                     Win32API.ReadProcessMemory((int)pInfo.rsProcessHandle, (int)address, buf, bytes, ref bytesRead);
