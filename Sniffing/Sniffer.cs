@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 namespace RockSnifferLib.Sniffing
 {
@@ -75,6 +76,7 @@ namespace RockSnifferLib.Sniffing
         /// </summary>
         /// <param name="rsProcess"></param>
         /// <param name="cache"></param>
+        /// <param name="config"></param>
         public Sniffer(Process rsProcess, ICache cache)
         {
             this.rsProcess = rsProcess;
@@ -89,6 +91,7 @@ namespace RockSnifferLib.Sniffing
 
         private async void DoMemoryReadout()
         {
+            float lastTimer = currentMemoryReadout.songTimer;
             while (running)
             {
                 try
@@ -106,6 +109,21 @@ namespace RockSnifferLib.Sniffing
 
                 OnMemoryReadout?.Invoke(this, new OnMemoryReadoutArgs() { memoryReadout = currentMemoryReadout });
 
+                switch (Environment.OSVersion.Platform)
+                {
+                    case PlatformID.MacOSX:
+                    case PlatformID.Unix:
+                        if (Math.Abs(currentMemoryReadout.songTimer - lastTimer) > 1)
+                        {
+                            // scan for note data from memory if required
+
+                            //var mem = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
+                            //Logger.Log(string.Format("Memory@tick: {0}mb", mem));
+                            memReader.DoPointerScan();
+                            lastTimer = currentMemoryReadout.songTimer;
+                        }
+                        break;
+                }
                 //Print memreadout if debug is enabled
                 currentMemoryReadout.Print();
 
@@ -129,7 +147,6 @@ namespace RockSnifferLib.Sniffing
                         Logger.LogError("Error while processing state machine: {0} {1}", e.GetType(), e.Message);
                     }
                 }
-
                 //Delay for 100 milliseconds
                 await Task.Delay(100);
             }
@@ -185,6 +202,7 @@ namespace RockSnifferLib.Sniffing
             }
         }
 
+
         /// <summary>
         /// Stops the sniffer, stopping all async tasks
         /// </summary>
@@ -197,32 +215,58 @@ namespace RockSnifferLib.Sniffing
         {
             //Build a list of all song files being accessed
             List<string> songFiles = new List<string>();
-
-            //Get all handles from the rocksmith process
-            var handles = CustomAPI.GetHandles(rsProcess);
-
-            //If there aren't any handles, return
-            if (handles == null)
+            List<FileDetails> fds = new List<FileDetails>();
+            switch (Environment.OSVersion.Platform)
             {
-                return null;
+                case PlatformID.MacOSX:
+                case PlatformID.Unix:
+                    int numPath = 0;
+                    IntPtr pathPointers = MacOSAPI.proc_pidinfo_wrapper(memReader.PInfo.PID, out numPath);
+                    //Logger.Log("Num Paths: " + numPath);
+                    IntPtr[] pIntPtrArray = new IntPtr[numPath];
+                    var ManagedStringArray = new string[numPath];
+
+                    Marshal.Copy(pathPointers, pIntPtrArray, 0, numPath);
+
+                    for (int i = 0; i < numPath; i++)
+                    {
+                        ManagedStringArray[i] = Marshal.PtrToStringAnsi(pIntPtrArray[i]);
+                        fds.Add(new FileDetails() { Name = ManagedStringArray[i] });
+                    }
+                    MacOSAPI.free_wrapper(pathPointers);
+                    break;
+                default:
+                    //Get all handles from the rocksmith process
+                    var handles = CustomAPI.GetHandles(rsProcess);
+
+                    //If there aren't any handles, return
+                    if (handles == null)
+                    {
+                        return null;
+                    }
+                    for (int i = 0; i < handles.Count; i++)
+                    {
+                        //Read the filename from the file handle
+                        try
+                        {
+                            var fd = FileDetails.GetFileDetails(rsProcess.Handle, handles[i]);
+                            fds.Add(fd);
+                        }
+                        catch (Exception)
+                        {
+                            continue;
+                        }
+                    }
+
+                    break;
             }
 
             var strTemp = "";
-            FileDetails fd = null;
 
             //Go through all the handles
-            for (int i = 0; i < handles.Count; i++)
+            for (int i = 0; i < fds.Count; i++)
             {
-                //Read the filename from the file handle
-                try
-                {
-                    fd = FileDetails.GetFileDetails(rsProcess.Handle, handles[i]);
-                }
-                catch (Exception e)
-                {
-                    continue;
-                }
-
+                FileDetails fd = fds[i];
                 //If getting file details failed for this handle, skip it
                 if (fd == null)
                 {
