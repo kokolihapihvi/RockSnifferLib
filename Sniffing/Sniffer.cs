@@ -111,8 +111,8 @@ namespace RockSnifferLib.Sniffing
 
                 OnMemoryReadout?.Invoke(this, new OnMemoryReadoutArgs() { memoryReadout = currentMemoryReadout });
 
-                var mem = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
-                Logger.Log(string.Format("Memory@tick: {0}mb", mem));
+                //var mem = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024);
+                //Logger.Log(string.Format("Memory@tick: {0}mb", mem));
                 switch (Environment.OSVersion.Platform)
                 {
                     case PlatformID.MacOSX:
