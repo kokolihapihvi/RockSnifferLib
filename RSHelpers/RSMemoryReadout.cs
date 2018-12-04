@@ -9,6 +9,7 @@ namespace RockSnifferLib.RSHelpers
         public float songTimer = 0;
 
         public string songID = "";
+        public string persistentID = "";
 
         public int totalNotesHit = 0;
         public int currentHitStreak = 0;
@@ -17,8 +18,10 @@ namespace RockSnifferLib.RSHelpers
         public int currentMissStreak = 0;
         public RSMode mode = RSMode.UNKNOWN;
 
-        public int TotalNotes {
-            get {
+        public int TotalNotes
+        {
+            get
+            {
                 return totalNotesMissed + totalNotesHit;
             }
         }
@@ -30,7 +33,8 @@ namespace RockSnifferLib.RSHelpers
         {
             if (Logger.logMemoryReadout)
             {
-                Logger.Log("SID: {0}\r\nt: {1}, hits: {2}, misses: {3}\r\nstreak: {4}, hstreak: {5}, mstreak:{6}", songID, songTimer, totalNotesHit, totalNotesMissed, currentHitStreak, highestHitStreak, currentMissStreak);
+                Logger.Log("PID: {7} SID: {0}\r\nt: {1}, hits: {2}, misses: {3}\r\nstreak: {4}, hstreak: {5}, mstreak:{6}", songID, songTimer, totalNotesHit, totalNotesMissed,
+                currentHitStreak, highestHitStreak, currentMissStreak, persistentID);
             }
         }
 
@@ -43,6 +47,7 @@ namespace RockSnifferLib.RSHelpers
             copy.songTimer = songTimer;
 
             copy.songID = songID;
+            copy.persistentID = persistentID;
 
             copy.mode = mode;
 

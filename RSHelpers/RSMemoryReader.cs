@@ -41,6 +41,8 @@ namespace RockSnifferLib.RSHelpers
         {
             if (CheckForValidNoteDataAddress(NoteDataMacAddress))
                 return;
+            const int itemsToSearch = 2;
+            int itemsFound = 0;
             ulong beginAddress = 0x0;
             ulong endAddress = 0x00007FFFFFE00000;
             ulong dataAlignment = 4;
@@ -73,18 +75,34 @@ namespace RockSnifferLib.RSHelpers
                     }
                     if (loopState.IsStopped)
                         return;
+
+                    byte[] hint3 = { 0x00, 0x3A, 0x6C, 0x61, 0x73, 0x5F, 0x67, 0x61, 0x6D, 0x65, 0x00 }; //:LAS_Game
+                    byte[] hint4 = { 0x00, 0x3A, 0x4C, 0x41, 0x53, 0x5F, 0x47, 0x61, 0x6D, 0x65, 0x00 }; //:las_game
                     ulong idx = MemoryHelper.ScanMem(this.PInfo, (IntPtr)address, (int)size, dataIndex, NOTE_DATA_MAGIC);
-                    if (idx == 0)
-                        return;
-                    IntPtr ptr = (IntPtr)(address + idx);
-                    UInt32 tag = MemoryHelper.GetUserTag(this.PInfo, address, size);
-                    if (tag == 2 && CheckForValidNoteDataAddress(ptr)) // VM_MEMORY_MALLOC_SMALL == 2
+                    ulong idx2 = MemoryHelper.ScanMemChar(this.PInfo, (IntPtr)address, (int)size, dataIndex, hint3, hint4);
+                    if (idx2 != 0)
                     {
+                        IntPtr ptr2 = (IntPtr)(address + idx2);
+                        string pid = CreateStringFromBytes(IntPtr.Subtract(ptr2, 0x20), 0x21); /* read one byte extra to include null terminating character */
                         if (Logger.logMemoryReadout)
-                            Logger.Log("Region: {0} Address: {1} Tag: {2}", i, ptr.ToString("X8"), tag);
-                        NoteDataMacAddress = ptr;
-                        loopState.Stop();
+                            Logger.Log("Region: {0} PersistentID: {1}", i, pid);
+                        Interlocked.Increment(ref itemsFound);
+                        readout.persistentID = pid;
                     }
+                    if (idx != 0)
+                    {
+                        IntPtr ptr = (IntPtr)(address + idx);
+                        UInt32 tag = MemoryHelper.GetUserTag(this.PInfo, address, size);
+                        if (tag == 2 && CheckForValidNoteDataAddress(ptr)) // VM_MEMORY_MALLOC_SMALL == 2
+                        {
+                            if (Logger.logMemoryReadout)
+                                Logger.Log("Region: {0} Address: {1} Tag: {2}", i, ptr.ToString("X8"), tag);
+                            NoteDataMacAddress = ptr;
+                            Interlocked.Increment(ref itemsFound);
+                        }
+                    }
+                    if (itemsFound >= itemsToSearch)
+                        loopState.Stop();
                 }
             });
             if (Logger.logMemoryReadout)
@@ -113,6 +131,24 @@ namespace RockSnifferLib.RSHelpers
 
             NoteDataMacAddress = IntPtr.Zero;
             return false;
+        }
+
+        public string CreateStringFromBytes(IntPtr address, int size)
+        {
+            byte[] bytes = MemoryHelper.ReadBytesFromMemory(PInfo, address, size);
+            int end = Array.IndexOf<byte>(bytes, 0);
+
+            //If there was a 0 in the array
+            if (end > 0)
+            {
+                //Copy into a char array
+                char[] chars = new char[end];
+
+                Array.Copy(bytes, chars, end);
+                string preview_name = new string(chars);
+                return preview_name;
+            }
+            return string.Empty;
         }
 
         /// <summary>

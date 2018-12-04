@@ -9,6 +9,7 @@
 #include <libproc.h>
 #include <sys/proc_info.h>
 #include <stdlib.h>
+#include <string.h>
 
 kern_return_t
 find_main_binary(pid_t pid, mach_vm_address_t *main_address);
@@ -158,6 +159,42 @@ EXPORT unsigned long scan_mem(unsigned int target_task,
                 int val = *(int *)((char *)vm_memory + dataIndex);
                 if (val == magic) /* magic number */
                 {
+                    fflush(stdout);
+                    free((void *)vm_memory);
+                    return dataIndex;
+                }
+                dataIndex += alignment;
+            }
+        }
+    }
+    free((void *)vm_memory);
+    return 0;
+}
+EXPORT unsigned long scan_mem_char(unsigned int target_task,
+                                   unsigned long address,
+                                   unsigned long size,
+                                   unsigned long di,
+                                   char hint1[], unsigned int hint1_size,
+                                   char hint2[], unsigned int hint2_size)
+{
+    unsigned long dataIndex = di;
+    mach_vm_size_t curr_bytes_read = 0;
+    vm_offset_t vm_memory = (vm_offset_t)malloc(size);
+    mach_vm_read_overwrite(target_task, address, size, vm_memory, &curr_bytes_read);
+    if (curr_bytes_read == size)
+    {
+        unsigned long alignment = 4;
+        unsigned long endLimit = size - 4;
+        while (dataIndex <= endLimit)
+        {
+            unsigned long numberOfStepsToTake = ((endLimit + alignment - dataIndex) / alignment);
+            for (unsigned long stepIndex = 0; stepIndex < numberOfStepsToTake; stepIndex++)
+            {
+                char *mem = ((char *)vm_memory + dataIndex);
+                if ((memcmp(mem, hint1, hint1_size) == 0) || memcmp(mem, hint2, hint2_size) == 0)
+                {
+                    //fprintf(stdout, "sizeof: %lu %lu %lu", sizeof(hint1), sizeof(hint3), strlen(hint3));
+                    //fprintf(stdout, "[dylib][DEBUG] Found magic string %s @ %p (value: %s)\n", magic, mem, mem + 1);
                     fflush(stdout);
                     free((void *)vm_memory);
                     return dataIndex;
