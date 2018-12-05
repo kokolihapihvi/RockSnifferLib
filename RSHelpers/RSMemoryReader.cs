@@ -37,8 +37,31 @@ namespace RockSnifferLib.RSHelpers
             }
         }
 
+        string lastState = "";
+        public void DoPointerScanWin32()
+        {
+            if (readout.currentState.ToLower().Contains("game"))
+            {
+                if (this.lastState != readout.currentState)
+                {
+                    if (Logger.logMemoryReadout)
+                        Logger.Log("Scanning for regions");
+                    var regions = MemoryHelper.GetAllRegionsWin32(this.PInfo);
+                    if (Logger.logMemoryReadout)
+                        Logger.Log("Regions Found: " + regions.Count);
+                }
+                else
+                {
+                    this.lastState = readout.currentState;
+                }
+            }
+            else
+            {
+                this.lastState = readout.currentState;
+            }
+        }
         /* scan memory regions looking for NOTE_DATA_MAGIC */
-        public void DoPointerScan()
+        public void DoPointerScanMacOS()
         {
             if (CheckForValidNoteDataAddress(NoteDataMacAddress))
                 return;
@@ -46,7 +69,7 @@ namespace RockSnifferLib.RSHelpers
             ulong beginAddress = 0x0;
             ulong endAddress = 0x00007FFFFFE00000;
             ulong dataAlignment = 4;
-            var regions = MemoryHelper.GetAllRegions(this.PInfo, beginAddress, endAddress);
+            var regions = MemoryHelper.GetAllRegionsMacOS(this.PInfo, beginAddress, endAddress);
             regions.Reverse();
             if (Logger.logMemoryReadout)
                 Logger.Log("Regions Found: " + regions.Count);

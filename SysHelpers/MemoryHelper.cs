@@ -161,7 +161,7 @@ namespace RockSnifferLib.SysHelpers
         /// <param name="begin"></param>
         /// <param name="end"></param>
         /// <returns></returns>
-        public static List<MacOSAPI.Region> GetAllRegions(ProcessInfo pInfo, ulong begin, ulong end)
+        public static List<MacOSAPI.Region> GetAllRegionsMacOS(ProcessInfo pInfo, ulong begin, ulong end)
         {
             List<MacOSAPI.Region> Regions = new List<MacOSAPI.Region>();
             ulong address = 0;
@@ -184,6 +184,45 @@ namespace RockSnifferLib.SysHelpers
                 address += size;
             }
             return Regions;
+        }
+
+        public static List<Win32API.Region> GetAllRegionsWin32(ProcessInfo processInfo)
+        {
+            List<Win32API.Region> regions = new List<Win32API.Region>();
+            Win32API.SYSTEM_INFO sys_info = new Win32API.SYSTEM_INFO();
+            Win32API.GetSystemInfo(out sys_info);
+
+            IntPtr proc_min_address = sys_info.minimumApplicationAddress;
+            IntPtr proc_max_address = sys_info.maximumApplicationAddress;
+
+            // saving the values as long ints so I won't have to do a lot of casts later
+            long proc_min_address_l = (long)proc_min_address;
+            long proc_max_address_l = (long)proc_max_address;
+
+            Win32API.MEMORY_BASIC_INFORMATION mem_basic_info = new Win32API.MEMORY_BASIC_INFORMATION();
+
+            while (proc_min_address_l < proc_max_address_l)
+            {
+                // 28 = sizeof(MEMORY_BASIC_INFORMATION)
+                Win32API.VirtualQueryEx(processInfo.rsProcessHandle, proc_min_address, out mem_basic_info, 28);
+
+                // if this memory chunk is accessible
+                if (mem_basic_info.Protect ==
+                Win32API.PAGE_READWRITE && mem_basic_info.State == Win32API.MEM_COMMIT)
+                {
+                    Win32API.Region reg = new Win32API.Region()
+                    {
+                        Address = (ulong)mem_basic_info.BaseAddress,
+                        Size = (ulong)mem_basic_info.RegionSize,
+                        Protection = mem_basic_info.Protect,
+                    };
+                }
+
+                // move to the next memory chunk
+                proc_min_address_l += mem_basic_info.RegionSize;
+                proc_min_address = new IntPtr(proc_min_address_l);
+            }
+            return regions;
         }
     }
 }

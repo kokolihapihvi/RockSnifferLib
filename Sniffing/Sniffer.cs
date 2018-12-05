@@ -120,7 +120,15 @@ namespace RockSnifferLib.Sniffing
                         if (Math.Abs(currentMemoryReadout.songTimer - lastTimer) > 1)
                         {
                             // scan for note data from memory if required
-                            memReader.DoPointerScan();
+                            memReader.DoPointerScanMacOS();
+                            lastTimer = currentMemoryReadout.songTimer;
+                        }
+                        break;
+                    default:
+                        if (Math.Abs(currentMemoryReadout.songTimer - lastTimer) > 1)
+                        {
+                            // scan for note data from memory if required
+                            memReader.DoPointerScanWin32();
                             lastTimer = currentMemoryReadout.songTimer;
                         }
                         break;
