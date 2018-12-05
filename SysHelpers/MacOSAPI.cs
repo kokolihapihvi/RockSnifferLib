@@ -43,7 +43,7 @@ namespace RockSnifferLib.SysHelpers
         public static extern ulong scan_mem(ulong TargetTask, ulong Address, ulong Size, ulong DataIndex, int magic);
         [DllImport("libMacOSAPI.dylib")]
         public static extern ulong scan_mem_char(ulong TargetTask, ulong Address, ulong Size,
-        ulong DataIndex, byte[] hint1, int hint1Size, byte[] hint2, int hint2Size);
+        ulong DataIndex, byte[] hint1, int hint1Size, byte[] hint2, int hint2Size, int region);
 
 
     }

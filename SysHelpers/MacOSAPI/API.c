@@ -175,7 +175,7 @@ EXPORT unsigned long scan_mem_char(unsigned int target_task,
                                    unsigned long size,
                                    unsigned long di,
                                    char hint1[], unsigned int hint1_size,
-                                   char hint2[], unsigned int hint2_size)
+                                   char hint2[], unsigned int hint2_size, int region)
 {
     unsigned long dataIndex = di;
     mach_vm_size_t curr_bytes_read = 0;
@@ -193,8 +193,15 @@ EXPORT unsigned long scan_mem_char(unsigned int target_task,
                 char *mem = ((char *)vm_memory + dataIndex);
                 if ((memcmp(mem, hint1, hint1_size) == 0) || memcmp(mem, hint2, hint2_size) == 0)
                 {
+                    if (strcasecmp((char *)mem - 32, "dependency_scoreattackcomponents") == 0)
+                    {
+                        fprintf(stdout, "[dylib][DEBUG] Found ignored string dependency_scoreattackcomponents @ %p region: %d\n", (void *)(address + dataIndex), region);
+                        fflush(stdout);
+                        dataIndex += alignment;
+                        continue;
+                    }
                     //fprintf(stdout, "sizeof: %lu %lu %lu", sizeof(hint1), sizeof(hint3), strlen(hint3));
-                    //fprintf(stdout, "[dylib][DEBUG] Found magic string %s @ %p (value: %s)\n", magic, mem, mem + 1);
+                    fprintf(stdout, "[dylib][DEBUG] Found magic string %s @ %d:%p (value: %s) (lookahead: %s)\n", ":las_game", region, mem, mem + 1, mem - 32);
                     fflush(stdout);
                     free((void *)vm_memory);
                     return dataIndex;

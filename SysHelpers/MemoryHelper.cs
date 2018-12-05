@@ -17,10 +17,10 @@ namespace RockSnifferLib.SysHelpers
     }
     class MemoryHelper
     {
-        public static ulong ScanMemChar(ProcessInfo pInfo, IntPtr ptr, int bytesRead, ulong dataIndex, byte[] b1, byte[] b2)
+        public static ulong ScanMemChar(ProcessInfo pInfo, IntPtr ptr, int bytesRead, ulong dataIndex, byte[] b1, byte[] b2, int region)
         {
             ulong ret = MacOSAPI.scan_mem_char(pInfo.Task, (ulong)ptr, (ulong)bytesRead,
-            dataIndex, b1, b1.Length, b2, b2.Length);
+            dataIndex, b1, b1.Length, b2, b2.Length, region);
             return ret;
         }
         /* Scan Memory pointed by ptr for the magic int  */

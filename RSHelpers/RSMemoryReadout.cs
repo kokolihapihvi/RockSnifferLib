@@ -33,8 +33,8 @@ namespace RockSnifferLib.RSHelpers
         {
             if (Logger.logMemoryReadout)
             {
-                Logger.Log("PID: {7} SID: {0}\r\nt: {1}, hits: {2}, misses: {3}\r\nstreak: {4}, hstreak: {5}, mstreak:{6}", songID, songTimer, totalNotesHit, totalNotesMissed,
-                currentHitStreak, highestHitStreak, currentMissStreak, persistentID);
+                Logger.Log("Mode: {8} PID: {7} SID:  {0}\r\nt: {1}, hits: {2}, misses: {3}\r\nstreak: {4}, hstreak: {5}, mstreak:{6}", songID, songTimer, totalNotesHit, totalNotesMissed,
+                currentHitStreak, highestHitStreak, currentMissStreak, persistentID, mode);
             }
         }
 
