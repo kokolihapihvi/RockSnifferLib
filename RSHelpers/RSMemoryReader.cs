@@ -181,7 +181,9 @@ namespace RockSnifferLib.RSHelpers
                     bytes = MemoryHelper.ReadBytesFromMemory(PInfo, FollowPointers(0x0147B678, new int[] { 0xC4, 0x264, 0xBC, 0x0 }), 128);
                     break;
                 default:
-                    bytes = MemoryHelper.ReadBytesFromMemory(PInfo, FollowPointers(0x00F5C80C, new int[] { 0x28, 0x10, 0x140 }), 128);
+                    //bytes = MemoryHelper.ReadBytesFromMemory(PInfo, FollowPointers(0x00F5C80C, new int[] { 0x28, 0x10, 0x140 }), 128);
+                    bytes = MemoryHelper.ReadBytesFromMemory(PInfo, FollowPointers(0x00F5C494, new int[] { 0xBC, 0x0 }), 128);
+
                     break;
             }
 
@@ -209,6 +211,22 @@ namespace RockSnifferLib.RSHelpers
                     readout.songID = song_id;
                 }
             }
+
+
+            // CURRENT STATE
+            switch (Environment.OSVersion.Platform)
+            {
+                case PlatformID.MacOSX:
+                case PlatformID.Unix:
+                    // IMPLEMENT
+                    break;
+                default:
+                    string s = CreateStringFromBytes(FollowPointers(0x00F5C5AC, new int[] { 0x28, 0x8C, 0x0 }), 255);
+                    if (!string.IsNullOrEmpty(s))
+                        readout.currentState = s;
+                    break;
+            }
+
 
             // SONG TIMER
             //
@@ -259,14 +277,18 @@ namespace RockSnifferLib.RSHelpers
 
                     //If note data is not valid, try the next mode
                     //Learn a song
-                    if (!ReadNoteData(FollowPointers(0x00F5C5AC, new int[] { 0xB0, 0x18, 0x4, 0x84, 0x0 })))
+                    if (readout.currentState.ToLower().Contains("learnasong"))
                     {
-                        //Score attack
-                        if (!ReadScoreAttackNoteData(FollowPointers(0x00F5C5AC, new int[] { 0xB0, 0x18, 0x4, 0x4C, 0x0 })))
-                        {
-                            readout.mode = RSMode.UNKNOWN;
-                        }
+                        readout.mode = RSMode.LEARNASONG;
+                        ReadNoteData(FollowPointers(0x00F5C5AC, new int[] { 0xB0, 0x18, 0x4, 0x84, 0x0 }));
                     }
+                    else if (readout.currentState.ToLower().Contains("scoreattack"))
+                    {
+                        readout.mode = RSMode.SCOREATTACK;
+                        ReadScoreAttackNoteData(FollowPointers(0x00F5C5AC, new int[] { 0xB0, 0x18, 0x4, 0x4C, 0x0 }));
+                    }
+                    else
+                        readout.mode = RSMode.UNKNOWN;
                     break;
             }
             //Copy over everything when a song is running
@@ -278,6 +300,7 @@ namespace RockSnifferLib.RSHelpers
             //Always copy over important fields
             prevReadout.songID = readout.songID;
             prevReadout.songTimer = readout.songTimer;
+            prevReadout.currentState = readout.currentState;
 
             return prevReadout;
         }
@@ -364,14 +387,6 @@ namespace RockSnifferLib.RSHelpers
             var hhs = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x003C));
             var tnm = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0040));
             var cms = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0044));
-            string s = CreateStringFromBytes(IntPtr.Add(structAddress, 0x01D0), 128);
-            List<string> Paths = new List<String>() { "Lead", "Rhythm", "Base", "lead", "rhythm", "bass" };
-            if (Paths.Contains(s))
-            {
-                Logger.Log("Path2: " + s);
-                readout.mode = RSMode.UNKNOWN;
-                return false;
-            }
             if ((tnh < 0) || (tnh > 999999)
             || (chs < 0) || (chs > 999999)
             || (hhs < 0) || (hhs > 999999)
@@ -382,7 +397,6 @@ namespace RockSnifferLib.RSHelpers
                 readout.mode = RSMode.UNKNOWN;
                 return false;
             }
-            Logger.Log("Path: " + s);
             readout.totalNotesHit = tnh;
             readout.currentHitStreak = chs;
             readout.highestHitStreak = hhs;
@@ -446,7 +460,6 @@ namespace RockSnifferLib.RSHelpers
             var hhs = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0044));
             var tnm = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0050));
             var cms = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0040));
-            string s = CreateStringFromBytes(IntPtr.Add(structAddress, 0x01D0), 128);
             if ((tnh < 0) || (tnh > 999999)
             || (chs < 0) || (chs > 999999)
             || (hhs < 0) || (hhs > 999999)
