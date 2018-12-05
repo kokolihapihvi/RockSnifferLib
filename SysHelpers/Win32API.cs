@@ -161,6 +161,8 @@ namespace RockSnifferLib.SysHelpers
         /* Imports required for region scanning */
         public const int PROCESS_QUERY_INFORMATION = 0x0400;
         public const int MEM_COMMIT = 0x00001000;
+        public const int MEM_PRIVATE = 0x20000;
+        public const int MEM_MAPPED = 0x40000;
         public const int PAGE_READWRITE = 0x04;
         public const int PROCESS_WM_READ = 0x0010;
 
@@ -186,7 +188,7 @@ namespace RockSnifferLib.SysHelpers
             public int RegionSize;
             public int State;
             public int Protect;
-            public int lType;
+            public int Type;
         }
 
         public struct SYSTEM_INFO

@@ -49,6 +49,49 @@ namespace RockSnifferLib.RSHelpers
                     var regions = MemoryHelper.GetAllRegionsWin32(this.PInfo);
                     if (Logger.logMemoryReadout)
                         Logger.Log("Regions Found: " + regions.Count);
+                    int regionCounter = 0;
+                    Parallel.For(0, regions.Count, (i, ls) =>
+                    {
+                        Interlocked.Increment(ref regionCounter);
+                        var region = regions[i];
+                        var address = region.Address;
+                        var size = region.Size;
+                        if (ls.IsStopped)
+                            return;
+                        byte[] buffer = MemoryHelper.ReadBytesFromMemory(this.PInfo, (IntPtr)address, (int)size);
+                        if (buffer.Length == (int)size)
+                        {
+                            IntPtr fadd = IntPtr.Zero;
+                            for (int x = 0; x < buffer.Length; x++)
+                            {
+
+                                byte[] hint3 = { 0x00, 0x3A, 0x6C, 0x61, 0x73, 0x5F, 0x67, 0x61, 0x6D, 0x65, 0x00 }; //:LAS_Game
+                                byte[] hint4 = { 0x00, 0x3A, 0x4C, 0x41, 0x53, 0x5F, 0x47, 0x61, 0x6D, 0x65, 0x00 }; //:las_game
+                                if (MemoryHelper.MaskCheck(buffer, x, hint3, "xxxxxxxxxxx"))
+                                {
+                                    // The pattern was found, return it. 
+                                    fadd = new IntPtr((int)address + (x));
+                                    //Logger.Log("Found hint3 at address: " + fadd.ToString("X8"));
+                                    ls.Stop();
+                                }
+                                if (MemoryHelper.MaskCheck(buffer, x, hint4, "xxxxxxxxxxx"))
+                                {
+                                    // The pattern was found, return it. 
+                                    fadd = new IntPtr((int)address + (x));
+                                    //Logger.Log("Found hint4 at address: " + fadd.ToString("X8"));
+                                    ls.Stop();
+                                }
+
+                            }
+                            if (fadd != IntPtr.Zero)
+                            {
+                                string pid = CreateStringFromBytes(IntPtr.Subtract(fadd, 0x20), 0x21); /* read one byte extra to include null terminating character */
+                                if (Logger.logMemoryReadout)
+                                    Logger.Log("Region: {0} Address: {1} PersistentID: {2}", i, fadd.ToString("X8"), pid);
+                                readout.persistentID = pid;
+                            }
+                        }
+                    });
                 }
                 else
                 {

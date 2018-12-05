@@ -186,6 +186,25 @@ namespace RockSnifferLib.SysHelpers
             return Regions;
         }
 
+        public static bool MaskCheck(byte[] buffer, int nOffset, byte[] btPattern, string strMask)
+        {
+            // Loop the pattern and compare to the mask and dump. 
+            for (int x = 0; x < btPattern.Length; x++)
+            {
+                if (nOffset + x >= buffer.Length)
+                    return false;
+                // If the mask char is a wildcard, just continue. 
+                if (strMask[x] == '?')
+                    continue;
+
+                // If the mask char is not a wildcard, ensure a match is made in the pattern. 
+                if ((strMask[x] == 'x') && (btPattern[x] != buffer[nOffset + x]))
+                    return false;
+            }
+
+            // The loop was successful so we found the pattern. 
+            return true;
+        }
         public static List<Win32API.Region> GetAllRegionsWin32(ProcessInfo processInfo)
         {
             List<Win32API.Region> regions = new List<Win32API.Region>();
@@ -196,31 +215,38 @@ namespace RockSnifferLib.SysHelpers
             IntPtr proc_max_address = sys_info.maximumApplicationAddress;
 
             // saving the values as long ints so I won't have to do a lot of casts later
-            long proc_min_address_l = (long)proc_min_address;
-            long proc_max_address_l = (long)proc_max_address;
-
+            long proc_min_address_l = proc_min_address.ToInt64();
+            long proc_max_address_l = proc_max_address.ToInt64();
             Win32API.MEMORY_BASIC_INFORMATION mem_basic_info = new Win32API.MEMORY_BASIC_INFORMATION();
-
+            int idx = 0;
             while (proc_min_address_l < proc_max_address_l)
             {
                 // 28 = sizeof(MEMORY_BASIC_INFORMATION)
-                Win32API.VirtualQueryEx(processInfo.rsProcessHandle, proc_min_address, out mem_basic_info, 28);
+                int ret = Win32API.VirtualQueryEx(processInfo.rsProcessHandle, proc_min_address, out mem_basic_info, 28);
 
                 // if this memory chunk is accessible
-                if (mem_basic_info.Protect ==
-                Win32API.PAGE_READWRITE && mem_basic_info.State == Win32API.MEM_COMMIT)
+                if (ret == 28)
                 {
-                    Win32API.Region reg = new Win32API.Region()
+                    if (mem_basic_info.Protect ==
+                    Win32API.PAGE_READWRITE && mem_basic_info.State == Win32API.MEM_COMMIT &&
+                    (mem_basic_info.Type == Win32API.MEM_MAPPED || mem_basic_info.Type == Win32API.MEM_PRIVATE))
                     {
-                        Address = (ulong)mem_basic_info.BaseAddress,
-                        Size = (ulong)mem_basic_info.RegionSize,
-                        Protection = mem_basic_info.Protect,
-                    };
+                        //Logger.Log("ret: {3} Region: {0} Address: {1} Size: {2}", idx, proc_min_address.ToString("X8"), mem_basic_info.RegionSize, ret);
+
+                        Win32API.Region reg = new Win32API.Region()
+                        {
+                            Address = (ulong)mem_basic_info.BaseAddress,
+                            Size = (ulong)mem_basic_info.RegionSize,
+                            Protection = mem_basic_info.Protect,
+                        };
+                        regions.Add(reg);
+                    }
                 }
 
                 // move to the next memory chunk
-                proc_min_address_l += mem_basic_info.RegionSize;
-                proc_min_address = new IntPtr(proc_min_address_l);
+                proc_min_address_l += (long)mem_basic_info.RegionSize;
+                proc_min_address = (IntPtr)(proc_min_address_l);
+                idx++;
             }
             return regions;
         }
