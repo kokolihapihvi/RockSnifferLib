@@ -70,16 +70,25 @@ namespace RockSnifferLib.RSHelpers
                                 if (MemoryHelper.MaskCheck(buffer, x, hint3, "xxxxxxxxxxx"))
                                 {
                                     // The pattern was found, return it. 
+
                                     fadd = new IntPtr((int)address + (x));
-                                    //Logger.Log("Found hint3 at address: " + fadd.ToString("X8"));
+                                    string pid = CreateStringFromBytes(IntPtr.Subtract(fadd, 0x20), 0x21); /* read one byte extra to include null terminating character */
+                                    if (pid == "dependency_scoreattackcomponents")
+                                        continue;
+
                                     ls.Stop();
+                                    break;
                                 }
                                 if (MemoryHelper.MaskCheck(buffer, x, hint4, "xxxxxxxxxxx"))
                                 {
                                     // The pattern was found, return it. 
                                     fadd = new IntPtr((int)address + (x));
-                                    //Logger.Log("Found hint4 at address: " + fadd.ToString("X8"));
+                                    string pid = CreateStringFromBytes(IntPtr.Subtract(fadd, 0x20), 0x21); /* read one byte extra to include null terminating character */
+                                    if (pid == "dependency_scoreattackcomponents")
+                                        continue;
+
                                     ls.Stop();
+                                    break;
                                 }
 
                             }
