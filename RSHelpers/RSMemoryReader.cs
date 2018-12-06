@@ -101,6 +101,7 @@ namespace RockSnifferLib.RSHelpers
                             }
                         }
                     });
+                    this.lastState = readout.currentState;
                 }
                 else
                 {
