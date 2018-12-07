@@ -40,9 +40,9 @@ namespace RockSnifferLib.RSHelpers
         string lastState = "";
         public void DoPointerScanWin32()
         {
-            if (readout.currentState.ToLower().Contains("game"))
+            if (readout.gameState.ToLower().Contains("game"))
             {
-                if (this.lastState != readout.currentState)
+                if (this.lastState != readout.gameState)
                 {
                     if (Logger.logMemoryReadout)
                         Logger.Log("Scanning for regions");
@@ -108,16 +108,16 @@ namespace RockSnifferLib.RSHelpers
                             }
                         }
                     });
-                    this.lastState = readout.currentState;
+                    this.lastState = readout.gameState;
                 }
                 else
                 {
-                    this.lastState = readout.currentState;
+                    this.lastState = readout.gameState;
                 }
             }
             else
             {
-                this.lastState = readout.currentState;
+                this.lastState = readout.gameState;
             }
         }
         /* scan memory regions looking for NOTE_DATA_MAGIC */
@@ -306,7 +306,7 @@ namespace RockSnifferLib.RSHelpers
                 default:
                     string s = CreateStringFromBytes(FollowPointers(0x00F5C5AC, new int[] { 0x28, 0x8C, 0x0 }), 255);
                     if (!string.IsNullOrEmpty(s))
-                        readout.currentState = s;
+                        readout.gameState = s;
                     break;
             }
 
@@ -360,12 +360,12 @@ namespace RockSnifferLib.RSHelpers
 
                     //If note data is not valid, try the next mode
                     //Learn a song
-                    if (readout.currentState.ToLower().Contains("learnasong"))
+                    if (readout.gameState.ToLower().Contains("learnasong"))
                     {
                         readout.mode = RSMode.LEARNASONG;
                         ReadNoteData(FollowPointers(0x00F5C5AC, new int[] { 0xB0, 0x18, 0x4, 0x84, 0x0 }));
                     }
-                    else if (readout.currentState.ToLower().Contains("scoreattack"))
+                    else if (readout.gameState.ToLower().Contains("scoreattack"))
                     {
                         readout.mode = RSMode.SCOREATTACK;
                         ReadScoreAttackNoteData(FollowPointers(0x00F5C5AC, new int[] { 0xB0, 0x18, 0x4, 0x4C, 0x0 }));
@@ -383,7 +383,7 @@ namespace RockSnifferLib.RSHelpers
             //Always copy over important fields
             prevReadout.songID = readout.songID;
             prevReadout.songTimer = readout.songTimer;
-            prevReadout.currentState = readout.currentState;
+            prevReadout.gameState = readout.gameState;
 
             return prevReadout;
         }

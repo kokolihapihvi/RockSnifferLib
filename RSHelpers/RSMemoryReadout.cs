@@ -17,7 +17,7 @@ namespace RockSnifferLib.RSHelpers
         public int totalNotesMissed = 0;
         public int currentMissStreak = 0;
         public RSMode mode = RSMode.UNKNOWN;
-        public string currentState = "";
+        public string gameState = "";
 
         /* Score Attack Fields */
         public int currentPerfectHitStreak = 0;
@@ -43,7 +43,7 @@ namespace RockSnifferLib.RSHelpers
         {
             if (Logger.logMemoryReadout)
             {
-                Logger.Log("State: {0} Mode: {1}", currentState, mode);
+                Logger.Log("State: {0} Mode: {1}", gameState, mode);
                 if (mode == RSMode.LEARNASONG)
                 {
                     Logger.Log("PID: {0} SID: {1}", persistentID, songID);
@@ -74,7 +74,7 @@ namespace RockSnifferLib.RSHelpers
             copy.persistentID = persistentID;
 
             copy.mode = mode;
-            copy.currentState = currentState;
+            copy.gameState = gameState;
 
             copy.totalNotesHit = totalNotesHit;
             copy.currentHitStreak = currentHitStreak;
