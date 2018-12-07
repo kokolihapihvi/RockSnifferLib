@@ -50,6 +50,8 @@ namespace RockSnifferLib.RSHelpers
                     if (Logger.logMemoryReadout)
                         Logger.Log("Regions Found: " + regions.Count);
                     int regionCounter = 0;
+                    Stopwatch s = new Stopwatch();
+                    s.Start();
                     Parallel.For(0, regions.Count, (i, ls) =>
                     {
                         Interlocked.Increment(ref regionCounter);
@@ -61,37 +63,42 @@ namespace RockSnifferLib.RSHelpers
                         byte[] buffer = MemoryHelper.ReadBytesFromMemory(this.PInfo, (IntPtr)address, (int)size);
                         if (buffer.Length == (int)size)
                         {
+                            byte[] hint3 = { 0x00, 0x3A, 0x6C, 0x61, 0x73, 0x5F, 0x67, 0x61, 0x6D, 0x65, 0x00 }; //:LAS_Game
+                            byte[] hint4 = { 0x00, 0x3A, 0x4C, 0x41, 0x53, 0x5F, 0x47, 0x61, 0x6D, 0x65, 0x00 }; //:las_game
                             IntPtr fadd = IntPtr.Zero;
-                            for (int x = 0; x < buffer.Length; x++)
+                            bool validpid = false;
+                            int ret = 0;
+
+                            do
                             {
-
-                                byte[] hint3 = { 0x00, 0x3A, 0x6C, 0x61, 0x73, 0x5F, 0x67, 0x61, 0x6D, 0x65, 0x00 }; //:LAS_Game
-                                byte[] hint4 = { 0x00, 0x3A, 0x4C, 0x41, 0x53, 0x5F, 0x47, 0x61, 0x6D, 0x65, 0x00 }; //:las_game
-                                if (MemoryHelper.MaskCheck(buffer, x, hint3, "xxxxxxxxxxx"))
+                                if (ls.IsStopped)
+                                    return;
+                                ret = MemoryHelper.IndexOfBytes(buffer, hint3, hint4, ret, buffer.Length);
+                                if (ret > 0)
                                 {
-                                    // The pattern was found, return it. 
+                                    if (ls.IsStopped)
+                                        return;
+                                    fadd = new IntPtr((int)address + (ret));
+                                    string pid = CreateStringFromBytes(IntPtr.Subtract(fadd, 0x20), 0x21);
+                                    if (pid != "dependency_scoreattackcomponents")
+                                    {
+                                        validpid = true;
 
-                                    fadd = new IntPtr((int)address + (x));
-                                    string pid = CreateStringFromBytes(IntPtr.Subtract(fadd, 0x20), 0x21); /* read one byte extra to include null terminating character */
-                                    if (pid == "dependency_scoreattackcomponents")
-                                        continue;
-
-                                    ls.Stop();
-                                    break;
+                                        ls.Stop();
+                                        s.Stop();
+                                        //Logger.Log("ret: {2} valid pid: {0} Elapsed: {1}", validpid, s.Elapsed.ToString(), ret);
+                                    }
+                                    else
+                                    {
+                                        Logger.Log("bad string match : {0} {1}", ret, pid);
+                                        ret = ret + hint3.Length;
+                                        fadd = IntPtr.Zero;
+                                    }
                                 }
-                                if (MemoryHelper.MaskCheck(buffer, x, hint4, "xxxxxxxxxxx"))
-                                {
-                                    // The pattern was found, return it. 
-                                    fadd = new IntPtr((int)address + (x));
-                                    string pid = CreateStringFromBytes(IntPtr.Subtract(fadd, 0x20), 0x21); /* read one byte extra to include null terminating character */
-                                    if (pid == "dependency_scoreattackcomponents")
-                                        continue;
-
-                                    ls.Stop();
+                                else
                                     break;
-                                }
+                            } while (validpid == false);
 
-                            }
                             if (fadd != IntPtr.Zero)
                             {
                                 string pid = CreateStringFromBytes(IntPtr.Subtract(fadd, 0x20), 0x21); /* read one byte extra to include null terminating character */
@@ -463,16 +470,6 @@ namespace RockSnifferLib.RSHelpers
             var hhs = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x003C));
             var tnm = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0040));
             var cms = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0044));
-            if ((tnh < 0) || (tnh > 999999)
-            || (chs < 0) || (chs > 999999)
-            || (hhs < 0) || (hhs > 999999)
-            || (tnm < 0) || (tnm > 999999)
-            || (cms < 0) || (cms > 999999)
-            )
-            {
-                readout.mode = RSMode.UNKNOWN;
-                return false;
-            }
             readout.totalNotesHit = tnh;
             readout.currentHitStreak = chs;
             readout.highestHitStreak = hhs;
@@ -510,14 +507,14 @@ namespace RockSnifferLib.RSHelpers
             //0050 - total notes missed
             //0054 - current hit streak
             //0058 - current miss streak
-            //0074 - current perfect hit streak
-            //0078 - total perfect hits
-            //007C - current late hit streak
-            //0080 - total late hits
-            //0084 - perfect phrases
-            //0088 - good phrases
-            //008C - passed phrases
-            //0090 - failed phrases
+            //0074 - current perfect hit streak - STORE
+            //0078 - total perfect hits - STORE
+            //007C - current late hit streak - STORE
+            //0080 - total late hits - STORE
+            //0084 - perfect phrases - STORE
+            //0088 - good phrases - STORE
+            //008C - passed phrases - STORE
+            //0090 - failed phrases - STORE
             //0094 - current perfect phrase streak
             //0098 - current good phrase streak
             //009C - current passed phrase streak
@@ -536,20 +533,27 @@ namespace RockSnifferLib.RSHelpers
             var hhs = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0044));
             var tnm = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0050));
             var cms = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0040));
-            if ((tnh < 0) || (tnh > 999999)
-            || (chs < 0) || (chs > 999999)
-            || (hhs < 0) || (hhs > 999999)
-            || (tnm < 0) || (tnm > 999999)
-            || (cms < 0) || (cms > 999999))
-            {
-                readout.mode = RSMode.UNKNOWN;
-                return false;
-            }
+            var cphs = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0074));
+            var tph = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0078));
+            var clhs = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x007c));
+            var tlh = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0080));
+            var pp = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0084));
+            var gp = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0088));
+            var passedp = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x008C));
+            var fp = MemoryHelper.ReadInt32FromMemory(PInfo, IntPtr.Add(structAddress, 0x0090));
             readout.totalNotesHit = tnh;
             readout.currentHitStreak = chs;
             readout.highestHitStreak = hhs;
             readout.totalNotesMissed = tnm;
             readout.currentMissStreak = cms;
+            readout.currentPerfectHitStreak = cphs;
+            readout.totalPerfectHits = tph;
+            readout.currentLateHitStreak = clhs;
+            readout.totalLateHits = tlh;
+            readout.perfectPhrases = pp;
+            readout.goodPhrases = gp;
+            readout.passedPhrases = passedp;
+            readout.failedPhrases = fp;
 
             return true;
         }

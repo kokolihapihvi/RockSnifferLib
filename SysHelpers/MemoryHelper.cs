@@ -186,8 +186,10 @@ namespace RockSnifferLib.SysHelpers
             return Regions;
         }
 
-        public static bool MaskCheck(byte[] buffer, int nOffset, byte[] btPattern, string strMask)
+        public static bool MaskCheck(byte[] buffer, int nOffset, byte[] btPattern, byte[] btPattern2, string strMask)
         {
+            bool hint1pass = true;
+            bool hint2pass = true;
             // Loop the pattern and compare to the mask and dump. 
             for (int x = 0; x < btPattern.Length; x++)
             {
@@ -199,11 +201,40 @@ namespace RockSnifferLib.SysHelpers
 
                 // If the mask char is not a wildcard, ensure a match is made in the pattern. 
                 if ((strMask[x] == 'x') && (btPattern[x] != buffer[nOffset + x]))
-                    return false;
+                    hint1pass = false;
+                if ((strMask[x] == 'x') && (btPattern2[x] != buffer[nOffset + x]))
+                    hint2pass = false;
             }
 
             // The loop was successful so we found the pattern. 
-            return true;
+            return hint1pass || hint2pass;
+        }
+        public static int IndexOfBytes(byte[] array, byte[] pattern, byte[] pattern2, int startIndex, int count)
+        {
+            if (array == null || array.Length == 0 || pattern == null || pattern.Length == 0 || count == 0)
+            {
+                return -1;
+            }
+            int i = startIndex;
+            int endIndex = count > 0 ? Math.Min(startIndex + count, array.Length) : array.Length;
+            int fidx = 0;
+            int lastFidx = 0;
+            while (i < endIndex)
+            {
+                lastFidx = fidx;
+                fidx = (array[i] == pattern[fidx] || array[i] == pattern2[fidx]) ? ++fidx : 0;
+                if (fidx == pattern.Length)
+                {
+                    return (i - fidx + 1);
+                }
+                if (lastFidx > 0 && fidx == 0)
+                {
+                    i = i - lastFidx;
+                    lastFidx = 0;
+                }
+                i++;
+            }
+            return -1;
         }
         public static List<Win32API.Region> GetAllRegionsWin32(ProcessInfo processInfo)
         {

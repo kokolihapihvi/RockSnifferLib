@@ -19,6 +19,15 @@ namespace RockSnifferLib.RSHelpers
         public RSMode mode = RSMode.UNKNOWN;
         public string currentState = "";
 
+        /* Score Attack Fields */
+        public int currentPerfectHitStreak = 0;
+        public int totalPerfectHits = 0;
+        public int currentLateHitStreak = 0;
+        public int totalLateHits = 0;
+        public int perfectPhrases = 0;
+        public int goodPhrases = 0;
+        public int passedPhrases = 0;
+        public int failedPhrases = 0;
         public int TotalNotes
         {
             get
@@ -34,8 +43,22 @@ namespace RockSnifferLib.RSHelpers
         {
             if (Logger.logMemoryReadout)
             {
-                Logger.Log("State: {9} Mode: {8} PID: {7} SID:  {0}\r\nt: {1}, hits: {2}, misses: {3}\r\nstreak: {4}, hstreak: {5}, mstreak:{6}", songID, songTimer, totalNotesHit, totalNotesMissed,
-                currentHitStreak, highestHitStreak, currentMissStreak, persistentID, mode, currentState);
+                Logger.Log("State: {0} Mode: {1}", currentState, mode);
+                if (mode == RSMode.LEARNASONG)
+                {
+                    Logger.Log("PID: {0} SID: {1}", persistentID, songID);
+                    Logger.Log("t: {0}, hits: {1}, misses: {2} streak: {3}, hstreak: {4}, mstreak:{5}", songTimer, totalNotesHit, totalNotesMissed,
+                        currentHitStreak, highestHitStreak, currentMissStreak);
+                }
+                else if (mode == RSMode.SCOREATTACK)
+                {
+                    Logger.Log("PID: {0} SID: {1}", persistentID, songID);
+                    Logger.Log("t: {0}, hits: {1}, misses: {2} streak: {3}, hstreak: {4}, mstreak:{5}", songTimer, totalNotesHit, totalNotesMissed,
+                        currentHitStreak, highestHitStreak, currentMissStreak);
+                    Logger.Log("cphstreak: {0} totalPerfect: {1} clstreak: {2} totalLate: {3}", currentPerfectHitStreak, totalPerfectHits, currentLateHitStreak, totalLateHits);
+                    Logger.Log("Phrases passed: {0} failed: {1} good: {2} perfect: {3}", passedPhrases, failedPhrases, goodPhrases, perfectPhrases);
+                }
+                Logger.Log("--");
             }
         }
 
@@ -58,6 +81,16 @@ namespace RockSnifferLib.RSHelpers
             copy.highestHitStreak = highestHitStreak;
             copy.totalNotesMissed = totalNotesMissed;
             copy.currentMissStreak = currentMissStreak;
+
+            copy.currentPerfectHitStreak = currentPerfectHitStreak;
+            copy.totalPerfectHits = totalPerfectHits;
+            copy.currentLateHitStreak = currentLateHitStreak;
+            copy.totalLateHits = totalLateHits;
+
+            copy.passedPhrases = passedPhrases;
+            copy.failedPhrases = failedPhrases;
+            copy.goodPhrases = goodPhrases;
+            copy.perfectPhrases = perfectPhrases;
         }
 
         /// <summary>
