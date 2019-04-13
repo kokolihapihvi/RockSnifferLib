@@ -1,4 +1,5 @@
-﻿using RockSnifferLib.Logging;
+﻿using RocksmithToolkitLib.DLCPackage.Manifest2014;
+using RockSnifferLib.Logging;
 using RockSnifferLib.Sniffing;
 using System;
 using System.Collections.Generic;
@@ -23,7 +24,7 @@ namespace RockSnifferLib.RSHelpers
             using (MemoryStream ms = loader.ExtractEntryData(x => (x.Name == "gfxassets/album_art/" + artFile.Substring(14) + "_256.dds")))
             {
                 //Create a Pfim image from memory stream
-                Pfim.Dds img = Pfim.Dds.Create(ms);
+                Pfim.Dds img = Pfim.Dds.Create(ms, new Pfim.PfimConfig());
 
                 //Create bitmap
                 Bitmap bm = new Bitmap(img.Width, img.Height);
@@ -75,10 +76,27 @@ namespace RockSnifferLib.RSHelpers
             {
                 //Extract toolkit info
                 var tkInfo = loader.ExtractToolkitInfo();
+                List<Manifest2014<Attributes2014>> manifests = null;
+
+                try
+                {
+                    manifests = loader.ExtractJsonManifests();
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError("Warning! Could not parse psarc file {0}: {1}", Path.GetFileName(filepath), e.Message);
+                    return null;
+                }
 
                 //Extract all arrangements
-                foreach (var v in loader.ExtractJsonManifests())
+                foreach (var v in manifests)
                 {
+                    if (v == null)
+                    {
+                        Logger.LogError("Unable to process JSON manifest for {0}", Path.GetFileName(filepath));
+                        continue;
+                    }
+
                     var attr = v.Entries.ToArray()[0].Value.ToArray()[0].Value;
 
                     if (attr.Phrases != null)
@@ -96,7 +114,7 @@ namespace RockSnifferLib.RSHelpers
                             {
                                 details.albumArt = ExtractAlbumArt(loader, attr.AlbumArt);
                             }
-                            catch (Exception e)
+                            catch (Exception)
                             {
                                 Logger.LogError("Warning: couldn't extract album art for {0}", attr.SongName);
 

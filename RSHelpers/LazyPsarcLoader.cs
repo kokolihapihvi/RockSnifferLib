@@ -1,5 +1,4 @@
 ﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using RocksmithToolkitLib.DLCPackage;
 using RocksmithToolkitLib.DLCPackage.Manifest2014;
 using RocksmithToolkitLib.Extensions;
@@ -9,20 +8,42 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace RockSnifferLib.RSHelpers
 {
     public class LazyPsarcLoader : IDisposable
     {
         private PSARC _archive;
-        private string _filePath;
+        private readonly string _filePath;
         private Stream _fileStream;
 
         public LazyPsarcLoader(string fileName, bool useMemory = true, bool lazy = true)
         {
             _filePath = fileName;
             _archive = new PSARC(true);
-            _fileStream = File.OpenRead(_filePath);
+
+            //Try to open the file over 10 seconds
+            int tries = 0;
+            while (_fileStream == null)
+            {
+                try
+                {
+                    _fileStream = File.OpenRead(_filePath);
+                }
+                catch (Exception e)
+                {
+                    //Throw the exception if we tried 10 times
+                    if (tries > 10)
+                    {
+                        throw e;
+                    }
+
+                    Thread.Sleep(1000);
+                }
+                tries++;
+            }
+
             _archive.Read(_fileStream, lazy);
         }
 
@@ -61,7 +82,7 @@ namespace RockSnifferLib.RSHelpers
             return null;
         }
 
-        public IEnumerable<Manifest2014<Attributes2014>> ExtractJsonManifests()
+        public List<Manifest2014<Attributes2014>> ExtractJsonManifests()
         {
             // every song contains gamesxblock but may not contain showlights.xml
             var xblockEntries = _archive.TOC.Where(x => x.Name.StartsWith("gamexblocks/nsongs") && x.Name.EndsWith(".xblock")).ToList();
@@ -93,8 +114,7 @@ namespace RockSnifferLib.RSHelpers
                         jsonEntry.Data.Position = 0;
                         jsonEntry.Data.CopyTo(ms);
                         ms.Position = 0;
-                        var jsonObj = JObject.Parse(reader.ReadToEnd());
-                        dataObj = JsonConvert.DeserializeObject<Manifest2014<Attributes2014>>(jsonObj.ToString());
+                        dataObj = JsonConvert.DeserializeObject<Manifest2014<Attributes2014>>(reader.ReadToEnd());
                     }
 
                     jsonData.Add(dataObj);
@@ -113,7 +133,7 @@ namespace RockSnifferLib.RSHelpers
             {
                 _archive.InflateEntry(toolkitVersionEntry);
                 toolkitVersionEntry.Data.Position = 0;
-                tkInfo = GeneralExtensions.GetToolkitInfo(new StreamReader(toolkitVersionEntry.Data));
+                tkInfo = GeneralExtension.GetToolkitInfo(new StreamReader(toolkitVersionEntry.Data));
             }
             else
             {

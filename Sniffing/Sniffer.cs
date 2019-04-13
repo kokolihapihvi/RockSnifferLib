@@ -2,12 +2,10 @@
 using RockSnifferLib.Events;
 using RockSnifferLib.Logging;
 using RockSnifferLib.RSHelpers;
-using RockSnifferLib.SysHelpers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text.RegularExpressions;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace RockSnifferLib.Sniffing
@@ -46,11 +44,6 @@ namespace RockSnifferLib.Sniffing
         private RSMemoryReadout currentMemoryReadout = new RSMemoryReadout();
 
         /// <summary>
-        /// Pattern to match to be a valid dlc file path
-        /// </summary>
-        private Regex dlcPSARCMatcher = new Regex(".*?dlc.*?\\.psarc$");
-
-        /// <summary>
         /// Reference to the rocksmith process
         /// </summary>
         private Process rsProcess;
@@ -69,6 +62,8 @@ namespace RockSnifferLib.Sniffing
         /// Boolean to let async tasks finish
         /// </summary>
         private bool running = true;
+
+        private FileSystemWatcher watcher;
 
         /// <summary>
         /// Instantiate a new Sniffer on process, using cache
@@ -91,10 +86,14 @@ namespace RockSnifferLib.Sniffing
         {
             while (running)
             {
+                await Task.Delay(100);
+
+                RSMemoryReadout newReadout = null;
+
                 try
                 {
                     //Read data from memory
-                    currentMemoryReadout = memReader.DoReadout();
+                    newReadout = memReader.DoReadout();
                 }
                 catch (Exception e)
                 {
@@ -104,12 +103,30 @@ namespace RockSnifferLib.Sniffing
                     }
                 }
 
+                if (newReadout == null)
+                {
+                    continue;
+                }
+
+                if (newReadout.songID != currentMemoryReadout.songID || (currentCDLCDetails == null || !currentCDLCDetails.IsValid()))
+                {
+                    var newDetails = cache.Get(newReadout.songID);
+
+                    if (newDetails != null && newDetails.IsValid())
+                    {
+                        currentCDLCDetails = cache.Get(newReadout.songID);
+                        OnSongChanged?.Invoke(this, new OnSongChangedArgs { songDetails = currentCDLCDetails });
+                        currentCDLCDetails.Print();
+                    }
+
+                }
+
+                newReadout.CopyTo(ref currentMemoryReadout);
+
                 OnMemoryReadout?.Invoke(this, new OnMemoryReadoutArgs() { memoryReadout = currentMemoryReadout });
 
                 //Print memreadout if debug is enabled
                 currentMemoryReadout.Print();
-
-                await Task.Delay(100);
             }
         }
 
@@ -137,52 +154,112 @@ namespace RockSnifferLib.Sniffing
 
         private async void DoSniffing()
         {
-            while (running)
+            //Get path to rs directory
+            var path = Path.GetDirectoryName(rsProcess.MainModule.FileName);
+
+            watcher = new FileSystemWatcher(path + Path.DirectorySeparatorChar + "dlc", "*.psarc")
             {
+                IncludeSubdirectories = true,
+
+                NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName
+            };
+
+            watcher.Created += PsarcFileChanged;
+            watcher.Changed += PsarcFileChanged;
+            watcher.Renamed += PsarcFileChanged;
+            watcher.Error += Watcher_Error;
+
+            watcher.EnableRaisingEvents = true;
+
+            await Task.Run(() => ProcessAllPsarcs(path));
+        }
+
+        private void Watcher_Error(object sender, ErrorEventArgs e)
+        {
+            Logger.LogError("FileSystemWatcher Error: {0}", e.GetException().Message);
+        }
+
+        private void PsarcFileChanged(object sender, FileSystemEventArgs e)
+        {
+            var psarcFile = e.FullPath;
+
+            if (!cache.Contains(psarcFile))
+            {
+                //Read psarc data
+                Dictionary<string, SongDetails> allSongDetails;
                 try
                 {
-                    //Sniff for song details
-                    await Sniff();
+                    allSongDetails = PSARCUtil.ReadPSARCHeaderData(psarcFile);
                 }
-                catch (Exception e)
+                catch
                 {
-                    if (running)
-                    {
-                        Logger.LogError("Error while sniffing: {0} {1}", e.GetType(), e.Message);
-                    }
+                    Logger.LogError("Unable to read {0}", psarcFile);
+                    return;
                 }
 
-                //Delay for 1 second
-                await Task.Delay(1000);
+                //If loading failed
+                if (allSongDetails == null)
+                {
+                    //Skip
+                    return;
+                }
+
+                //Add this CDLC file to the cache
+                cache.Add(psarcFile, allSongDetails);
             }
         }
 
-        /// <summary>
-        /// Sniff file handles and update cdlc details
-        /// <para></para>
-        /// </summary>
-        public async Task Sniff()
+        private void ProcessAllPsarcs(string path)
         {
-            //Only sniff file handles if we are in the menus, or if the current song differs from the current memory readout
-            //Compare song id's in lowercase because the preview audio name is not guaranteed to match
-            if (currentState == SnifferState.IN_MENUS || (currentCDLCDetails.songID.ToLowerInvariant() != currentMemoryReadout.songID.ToLowerInvariant()))
-            {
-                //Get a list of files rocksmith is accessing
-                List<string> dlcFiles = SniffFileHandles();
+            Logger.Log("Processing all psarc files");
 
-                //If the list exists
-                if (dlcFiles != null && dlcFiles.Count > 0)
+            var sw = new Stopwatch();
+            sw.Start();
+
+            //Build a list of all dlc psarc files, including songs.psarc
+            List<string> psarcFiles = new List<string>
+            {
+                path + "/songs.psarc"
+            };
+
+            //Go into the dlc folder
+            path = path + "/dlc";
+
+            GetAllPsarcFiles(path, psarcFiles);
+            
+            Parallel.ForEach(psarcFiles, psarcFile =>
+            {
+                if (!cache.Contains(psarcFile))
                 {
-                    //Go through all the dlc files until we find a match
-                    foreach (string dlcFile in dlcFiles)
+                    //Read psarc data
+                    Dictionary<string, SongDetails> allSongDetails;
+                    try
                     {
-                        if (await UpdateCurrentDetails(dlcFile))
-                        {
-                            break;
-                        }
+                        allSongDetails = PSARCUtil.ReadPSARCHeaderData(psarcFile);
+                    }
+                    catch
+                    {
+                        Logger.LogError("Unable to read {0}", psarcFile);
+                        return;
+                    }
+
+                    //If loading was successful
+                    if (allSongDetails != null)
+                    {
+                        //Add this CDLC file to the cache
+                        cache.Add(psarcFile, allSongDetails);
                     }
                 }
-            }
+            });
+
+            sw.Stop();
+            Logger.Log("Processed {0} psarc files in {1}ms", psarcFiles.Count, sw.ElapsedMilliseconds);
+        }
+
+        private void GetAllPsarcFiles(string path, List<string> files)
+        {
+            //Add all files in the current path including all subdirectories
+            files.AddRange(Directory.GetFiles(path, "*_p.psarc", SearchOption.AllDirectories));
         }
 
         /// <summary>
@@ -191,61 +268,8 @@ namespace RockSnifferLib.Sniffing
         public void Stop()
         {
             running = false;
-        }
 
-        private List<string> SniffFileHandles()
-        {
-            //Build a list of all song files being accessed
-            List<string> songFiles = new List<string>();
-
-            //Get all handles from the rocksmith process
-            var handles = CustomAPI.GetHandles(rsProcess);
-
-            //If there aren't any handles, return
-            if (handles == null)
-            {
-                return null;
-            }
-
-            var strTemp = "";
-            FileDetails fd = null;
-
-            //Go through all the handles
-            for (int i = 0; i < handles.Count; i++)
-            {
-                //Read the filename from the file handle
-                try
-                {
-                    fd = FileDetails.GetFileDetails(rsProcess.Handle, handles[i]);
-                }
-                catch (Exception e)
-                {
-                    continue;
-                }
-
-                //If getting file details failed for this handle, skip it
-                if (fd == null)
-                {
-                    continue;
-                }
-
-                strTemp = fd.Name;
-
-                //Add songs.psarc
-                if (strTemp.EndsWith("songs.psarc"))
-                {
-                    songFiles.Add(strTemp);
-                }
-
-                //Check if it matches the dlc pattern
-                if (dlcPSARCMatcher.IsMatch(strTemp))
-                {
-                    //Add dlc files
-                    songFiles.Add(strTemp);
-                }
-            }
-
-            return songFiles;
+            watcher.Dispose();
         }
 
         /// <summary>
@@ -323,98 +347,6 @@ namespace RockSnifferLib.Sniffing
                     Logger.Log("Current state: {0}", currentState.ToString());
                 }
             }
-        }
-
-        private async Task<bool> UpdateCurrentDetails(string filepath)
-        {
-            //If the song has not changed, and the details object is valid, no need to update
-            //Compare song id's in lowercase because the preview audio name is not guaranteed to match
-            if (currentCDLCDetails.IsValid() && currentMemoryReadout.songID.ToLowerInvariant() == currentCDLCDetails.songID.ToLowerInvariant())
-            {
-                return true;
-            }
-
-            //If songID is empty, we aren't gonna be able to do anything here
-            if (currentMemoryReadout.songID == "")
-            {
-                return true;
-            }
-
-            if (Logger.logSongDetails)
-            {
-                Logger.Log("Looking for '{0}' in psarc file: {1}", currentMemoryReadout.songID, filepath);
-            }
-
-            //Check if this psarc file is cached
-            if (cache.Contains(filepath))
-            {
-                //Load from cache if it is
-                currentCDLCDetails = cache.Load(filepath, currentMemoryReadout.songID);
-
-                //If cache failed to load
-                if (currentCDLCDetails == null)
-                {
-                    //Set invalid song details
-                    currentCDLCDetails = new SongDetails();
-
-                    //Return false, this is probably not the correct file
-                    return false;
-                }
-
-                //Print current details (if debug is enabled) and print warnings about this dlc
-                currentCDLCDetails.Print();
-
-                //Invoke event
-                OnSongChanged?.Invoke(this, new OnSongChangedArgs() { songDetails = currentCDLCDetails });
-
-                //Exit function as data was handled from cache
-                return true;
-            }
-
-            //Read psarc data into the details object
-            var allSongDetails = await Task.Run(() => PSARCUtil.ReadPSARCHeaderData(filepath));
-
-            //If loading failed
-            if (allSongDetails == null)
-            {
-                //Exit function
-                return true;
-            }
-
-            //If this is the songs.psarc file, we should merge RS1 DLC into it
-            if (filepath.EndsWith("songs.psarc"))
-            {
-                //Really ugly way to find the rs1 dlc psarc
-                string rs1dlcpath = filepath.Replace("songs.psarc", "dlc" + System.IO.Path.DirectorySeparatorChar + "rs1compatibilitydlc_p.psarc");
-
-                //Read the rs1 dlc psarc
-                var rs1SongDetails = await Task.Run(() => PSARCUtil.ReadPSARCHeaderData(rs1dlcpath));
-
-                //If we got rs1 dlc arrangements
-                if (rs1SongDetails != null)
-                {
-                    //Combine the two dictionaries
-                    allSongDetails = allSongDetails.Concat(rs1SongDetails).ToDictionary(k => k.Key, v => v.Value);
-                }
-            }
-
-            //If the song detail dictionary contains the song ID we are looking for
-            if (allSongDetails.ContainsKey(currentMemoryReadout.songID))
-            {
-                //Assign current CDLC details
-                currentCDLCDetails = allSongDetails[currentMemoryReadout.songID];
-            }
-
-            //Add this CDLC file to the cache
-            cache.Add(filepath, allSongDetails);
-
-            //Print current details (if debug is enabled) and print warnings about this dlc
-            currentCDLCDetails.Print();
-
-            //Invoke event
-            OnSongChanged?.Invoke(this, new OnSongChangedArgs() { songDetails = currentCDLCDetails });
-
-            return true;
         }
     }
 }

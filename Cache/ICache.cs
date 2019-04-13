@@ -17,7 +17,14 @@ namespace RockSnifferLib.Cache
         /// </summary>
         /// <param name="filepath"></param>
         /// <returns></returns>
-        SongDetails Load(string filepath, string songID);
+        SongDetails Get(string filepath, string songID);
+
+        /// <summary>
+        /// Gets cached song details by searching the cache
+        /// </summary>
+        /// <param name="SongID"></param>
+        /// <returns></returns>
+        SongDetails Get(string SongID);
 
         /// <summary>
         /// Adds songdetails of a file to the cache

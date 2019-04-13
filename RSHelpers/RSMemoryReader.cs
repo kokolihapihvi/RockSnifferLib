@@ -12,7 +12,7 @@ namespace RockSnifferLib.RSHelpers
 
         //Process handles
         public Process rsProcess;
-        private IntPtr rsProcessHandle;
+        private readonly IntPtr rsProcessHandle;
 
         public RSMemoryReader(Process rsProcess)
         {

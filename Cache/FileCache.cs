@@ -36,7 +36,7 @@ namespace RockSnifferLib.Cache
         /// </summary>
         /// <param name="filepath"></param>
         /// <returns></returns>
-        public SongDetails Load(string filepath, string songID)
+        public SongDetails Get(string filepath, string songID)
         {
             string cachedfile = cachedir + Path.DirectorySeparatorChar + SanitizeFilename(Path.GetFileNameWithoutExtension(filepath)) + Path.DirectorySeparatorChar + SanitizeFilename(songID);
 
@@ -59,6 +59,52 @@ namespace RockSnifferLib.Cache
             else if (Logger.logCache)
             {
                 Logger.Log("Cache for {0} does not contain {1}", SanitizeFilename(Path.GetFileNameWithoutExtension(filepath)), SanitizeFilename(songID));
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Get a cached songs details by searching the cache
+        /// </summary>
+        /// <param name="songID"></param>
+        /// <returns></returns>
+        public SongDetails Get(string songID)
+        {
+            var folder = Search(songID);
+
+            if (folder == null)
+            {
+                if (Logger.logCache)
+                {
+                    Logger.Log("Cache does not contain {0}", songID);
+                }
+
+                return null;
+            }
+
+            var cachedfile = folder + "/" + songID;
+
+            SongDetails details = JsonConvert.DeserializeObject<SongDetails>(File.ReadAllText(cachedfile + ".json"));
+
+            details.albumArt = Image.FromFile(cachedfile + ".jpeg");
+
+            if (Logger.logCache)
+            {
+                Logger.Log("Read from cache: {0}/{1}", Path.GetFileName(folder), songID);
+            }
+
+            return details;
+        }
+
+        private string Search(string songID)
+        {
+            foreach (string folder in Directory.EnumerateDirectories(cachedir))
+            {
+                if (File.Exists(folder + "/" + songID + ".json"))
+                {
+                    return folder;
+                }
             }
 
             return null;
