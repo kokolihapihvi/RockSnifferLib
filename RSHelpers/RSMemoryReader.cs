@@ -58,12 +58,19 @@ namespace RockSnifferLib.RSHelpers
 
             // ARRANGEMENT HASH
             //
+            // This is set to the arrangement persistent id while playing a song
             string arrangement_hash = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC, new int[] { 0x18, 0x18, 0xC, 0x1C0, 0x0 }));
             if (arrangement_hash != null)
             {
                 readout.arrangementID = arrangement_hash;
             }
 
+            // GAME STATE
+            //
+            // This one popped up while looking for arrangement hash, seems to be a logical string representing the current game stage
+            // Can be garbled under unknown circumstances
+            // Exists in two (and probably more) locations, where only one may be valid, this tries to get either
+            // Prioritizing the one at 0x27C, because it is more human readable
             string game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC, new int[] { 0x18, 0x18, 0xC, 0x27C }));
             if(game_stage == null)
             {
@@ -112,6 +119,12 @@ namespace RockSnifferLib.RSHelpers
 
         private IntPtr FollowPointers(int entryAddress, int[] offsets)
         {
+            //If the process has exited, don't try to read memory
+            if(rsProcess.HasExited)
+            {
+                return IntPtr.Zero;
+            }
+
             //Get base address
             IntPtr baseAddress = rsProcess.MainModule.BaseAddress;
 

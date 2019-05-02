@@ -124,9 +124,10 @@ namespace RockSnifferLib.RSHelpers
                             }
                         }
 
+                        //Get a list of all sections
                         var sections = new List<ArrangementDetails.SectionDetails>();
 
-                        foreach(var sect in attr.Sections)
+                        foreach (var sect in attr.Sections)
                         {
                             var sectionDetails = new ArrangementDetails.SectionDetails();
                             sectionDetails.name = sect.Name;
@@ -136,11 +137,28 @@ namespace RockSnifferLib.RSHelpers
                             sections.Add(sectionDetails);
                         }
 
+                        //Build arrangement details
                         var arrangementDetails = new ArrangementDetails();
                         arrangementDetails.name = attr.ArrangementName;
                         arrangementDetails.arrangementID = arrangement_id;
                         arrangementDetails.sections = sections;
+                        arrangementDetails.isBonusArrangement = (attr.ArrangementProperties.BonusArr == 1);
 
+                        //Determine path type
+                        if (attr.ArrangementProperties.PathLead == 1)
+                        {
+                            arrangementDetails.type = "Lead";
+                        }
+                        else if (attr.ArrangementProperties.PathRhythm == 1)
+                        {
+                            arrangementDetails.type = "Rhythm";
+                        }
+                        else if (attr.ArrangementProperties.PathBass == 1)
+                        {
+                            arrangementDetails.type = "Bass";
+                        }
+
+                        //Get general song information
                         details.songID = attr.SongKey;
                         details.songLength = (float)(attr.SongLength ?? 0);
                         details.songName = attr.SongName;
@@ -149,6 +167,7 @@ namespace RockSnifferLib.RSHelpers
                         details.albumYear = attr.SongYear ?? 0;
                         details.arrangements.Add(arrangementDetails);
 
+                        //Apply toolkit information
                         details.toolkit = new ToolkitDetails
                         {
                             version = tkInfo.PackageVersion,

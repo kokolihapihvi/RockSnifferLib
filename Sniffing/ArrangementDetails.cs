@@ -18,6 +18,8 @@ namespace RockSnifferLib.Sniffing
 
         public string name;
         public string arrangementID;
+        public string type;
+        public bool isBonusArrangement;
         public List<SectionDetails> sections = new List<SectionDetails>();
     }
 }
