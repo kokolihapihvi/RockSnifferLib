@@ -97,7 +97,9 @@ namespace RockSnifferLib.RSHelpers
                         continue;
                     }
 
-                    var attr = v.Entries.ToArray()[0].Value.ToArray()[0].Value;
+                    var arrangement = v.Entries.First();
+                    var arrangement_id = arrangement.Key;
+                    var attr = arrangement.Value.First().Value;
 
                     if (attr.Phrases != null)
                     {
@@ -122,13 +124,30 @@ namespace RockSnifferLib.RSHelpers
                             }
                         }
 
+                        var sections = new List<ArrangementDetails.SectionDetails>();
+
+                        foreach(var sect in attr.Sections)
+                        {
+                            var sectionDetails = new ArrangementDetails.SectionDetails();
+                            sectionDetails.name = sect.Name;
+                            sectionDetails.startTime = sect.StartTime;
+                            sectionDetails.endTime = sect.EndTime;
+
+                            sections.Add(sectionDetails);
+                        }
+
+                        var arrangementDetails = new ArrangementDetails();
+                        arrangementDetails.name = attr.ArrangementName;
+                        arrangementDetails.arrangementID = arrangement_id;
+                        arrangementDetails.sections = sections;
+
                         details.songID = attr.SongKey;
                         details.songLength = (float)(attr.SongLength ?? 0);
                         details.songName = attr.SongName;
                         details.artistName = attr.ArtistName;
                         details.albumName = attr.AlbumName;
                         details.albumYear = attr.SongYear ?? 0;
-                        details.numArrangements++;
+                        details.arrangements.Add(arrangementDetails);
 
                         details.toolkit = new ToolkitDetails
                         {

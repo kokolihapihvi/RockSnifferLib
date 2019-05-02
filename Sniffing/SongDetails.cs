@@ -1,5 +1,6 @@
 ﻿using RockSnifferLib.Logging;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace RockSnifferLib.Sniffing
@@ -15,7 +16,9 @@ namespace RockSnifferLib.Sniffing
         public float songLength = 0;
 
         public int albumYear = 0;
-        public int numArrangements = 0;
+        public int NumArrangements { get { return arrangements.Count; } }
+
+        public List<ArrangementDetails> arrangements = new List<ArrangementDetails>();
 
         public ToolkitDetails toolkit;
 
@@ -31,9 +34,9 @@ namespace RockSnifferLib.Sniffing
             }
 
             //Print warning if there are more than 6 arrangements (RS crash)
-            if (numArrangements >= 6)
+            if (NumArrangements >= 6)
             {
-                Logger.LogError("WARNING: {0} - {1} has too many ({2}) arrangements", artistName, songName, numArrangements);
+                Logger.LogError("WARNING: {0} - {1} has too many ({2}) arrangements", artistName, songName, NumArrangements);
             }
         }
 
@@ -43,7 +46,7 @@ namespace RockSnifferLib.Sniffing
         /// <returns>True if SongDetails seems valid</returns>
         public bool IsValid()
         {
-            return !(songLength == 0 && albumYear == 0 && numArrangements == 0);
+            return !(songLength == 0 && albumYear == 0 && NumArrangements == 0);
         }
     }
 }

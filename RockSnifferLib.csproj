@@ -184,6 +184,7 @@
     <Compile Include="RSHelpers\RSMemoryReadout.cs" />
     <Compile Include="Cache\FileCache.cs" />
     <Compile Include="RSHelpers\RSMode.cs" />
+    <Compile Include="Sniffing\ArrangementDetails.cs" />
     <Compile Include="Sniffing\Sniffer.cs" />
     <Compile Include="Sniffing\SnifferState.cs" />
     <Compile Include="Sniffing\SongDetails.cs" />

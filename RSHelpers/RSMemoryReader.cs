@@ -1,5 +1,4 @@
-﻿using RockSnifferLib.Logging;
-using RockSnifferLib.SysHelpers;
+﻿using RockSnifferLib.SysHelpers;
 using System;
 using System.Diagnostics;
 
@@ -34,22 +33,11 @@ namespace RockSnifferLib.RSHelpers
             //Candidate #1: FollowPointers(0x00F5C494, new int[] { 0xBC, 0x0 })
             //Candidate #2: FollowPointers(0x00F80CEC, new int[] { 0x598, 0x1B8, 0x0 })
             //Candidate #3: FollowPointers(0x00F5DAFC, new int[] { 0x608, 0x1B8, 0x0 })
-            byte[] bytes = MemoryHelper.ReadBytesFromMemory(rsProcessHandle, FollowPointers(0x00F5C494, new int[] { 0xBC, 0x0 }), 128);
+            string preview_name = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C494, new int[] { 0xBC, 0x0 }));
 
-            //Find the first 0 in the array
-            int end = Array.IndexOf<byte>(bytes, 0);
-
-            //If there was a 0 in the array
-            if (end > 0)
+            //If there was string in memory
+            if (preview_name != null)
             {
-                //Copy into a char array
-                char[] chars = new char[end];
-
-                Array.Copy(bytes, chars, end);
-
-                //Create string from char array
-                string preview_name = new string(chars);
-
                 //Verify Play_ prefix and _Preview suffix
                 if (preview_name.StartsWith("Play_") && preview_name.EndsWith("_Preview"))
                 {
@@ -67,6 +55,25 @@ namespace RockSnifferLib.RSHelpers
             //Candidate #1: FollowPointers(0x00F5C5AC, new int[] { 0xB0, 0x538, 0x8 })
             //Candidate #2: FollowPointers(0x00F5C4CC, new int[] { 0x5F0, 0x538, 0x8 })
             ReadSongTimer(FollowPointers(0x00F5C5AC, new int[] { 0xB0, 0x538, 0x8 }));
+
+            // ARRANGEMENT HASH
+            //
+            string arrangement_hash = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC, new int[] { 0x18, 0x18, 0xC, 0x1C0, 0x0 }));
+            if (arrangement_hash != null)
+            {
+                readout.arrangementID = arrangement_hash;
+            }
+
+            string game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC, new int[] { 0x18, 0x18, 0xC, 0x27C }));
+            if(game_stage == null)
+            {
+                game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC, new int[] { 0x18, 0x18, 0xC, 0x14 }));
+            }
+
+            if (game_stage != null)
+            {
+                readout.gameStage = game_stage;
+            }
 
             // NOTE DATA
             //
@@ -97,6 +104,7 @@ namespace RockSnifferLib.RSHelpers
 
             //Always copy over important fields
             prevReadout.songID = readout.songID;
+            prevReadout.gameStage = readout.gameStage;
             prevReadout.songTimer = readout.songTimer;
 
             return prevReadout;

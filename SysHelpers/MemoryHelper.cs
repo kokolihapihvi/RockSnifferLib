@@ -37,6 +37,45 @@ namespace RockSnifferLib.SysHelpers
             return buf;
         }
 
+        public static string ReadStringFromMemory(IntPtr processHandle, IntPtr address, int maxLength = 128)
+        {
+            //Dont read garbage
+            if (address == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            byte[] bytes = ReadBytesFromMemory(processHandle, address, maxLength);
+
+            //Find the first 0 in the array
+            int end = Array.IndexOf<byte>(bytes, 0);
+
+            //No terminating 0 in the array, or 0 length string
+            if (end <= 0)
+            {
+                return null;
+            }
+
+            //Copy into a char array
+            char[] chars = new char[end];
+
+            Array.Copy(bytes, chars, end);
+
+            //Verify that all characters are in range 32-126 (basic ascii)
+            foreach (char c in chars)
+            {
+                if(c < 32 || c > 126)
+                {
+                    return null;
+                }
+            }
+
+            //Create string from char array
+            string str = new string(chars);
+
+            return str;
+        }
+
         /// <summary>
         /// Reads an Int32 from a processes memory
         /// </summary>

@@ -9,6 +9,8 @@ namespace RockSnifferLib.RSHelpers
         public float songTimer = 0;
 
         public string songID = "";
+        public string arrangementID = "";
+        public string gameStage = "";
 
         public int totalNotesHit = 0;
         public int currentHitStreak = 0;
@@ -43,6 +45,8 @@ namespace RockSnifferLib.RSHelpers
             copy.songTimer = songTimer;
 
             copy.songID = songID;
+            copy.arrangementID = arrangementID;
+            copy.gameStage = gameStage;
 
             copy.mode = mode;
 
