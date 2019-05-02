@@ -72,14 +72,19 @@ namespace RockSnifferLib.RSHelpers
             // Exists in two (and probably more) locations, where only one may be valid, this tries to get either
             // Prioritizing the one at 0x27C, because it is more human readable
             string game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC, new int[] { 0x18, 0x18, 0xC, 0x27C }));
-            if(game_stage == null)
+            if (game_stage == null)
             {
                 game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC, new int[] { 0x18, 0x18, 0xC, 0x14 }));
             }
 
+            //If we got a game stage
             if (game_stage != null)
             {
-                readout.gameStage = game_stage;
+                //Verify that it is at least 4 characters long, to filter out more garbage
+                if (game_stage.Length > 4)
+                {
+                    readout.gameStage = game_stage;
+                }
             }
 
             // NOTE DATA
@@ -120,7 +125,7 @@ namespace RockSnifferLib.RSHelpers
         private IntPtr FollowPointers(int entryAddress, int[] offsets)
         {
             //If the process has exited, don't try to read memory
-            if(rsProcess.HasExited)
+            if (rsProcess.HasExited)
             {
                 return IntPtr.Zero;
             }
