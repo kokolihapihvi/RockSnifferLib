@@ -1,4 +1,5 @@
 ﻿using RockSnifferLib.Logging;
+using RockSnifferLib.RSHelpers.NoteData;
 using System;
 
 namespace RockSnifferLib.RSHelpers
@@ -12,18 +13,8 @@ namespace RockSnifferLib.RSHelpers
         public string arrangementID = "";
         public string gameStage = "";
 
-        public int totalNotesHit = 0;
-        public int currentHitStreak = 0;
-        public int highestHitStreak = 0;
-        public int totalNotesMissed = 0;
-        public int currentMissStreak = 0;
         public RSMode mode = RSMode.UNKNOWN;
-
-        public int TotalNotes {
-            get {
-                return totalNotesMissed + totalNotesHit;
-            }
-        }
+        public INoteData noteData;
 
         /// <summary>
         /// Prints out this readouts details (if Logger.logMemoryOutput is enabled)
@@ -32,7 +23,7 @@ namespace RockSnifferLib.RSHelpers
         {
             if (Logger.logMemoryReadout)
             {
-                Logger.Log("SID: {0}\r\nt: {1}, hits: {2}, misses: {3}\r\nstreak: {4}, hstreak: {5}, mstreak:{6}", songID, songTimer, totalNotesHit, totalNotesMissed, currentHitStreak, highestHitStreak, currentMissStreak);
+                Logger.Log("SID: {0}\r\nt: {1}, hits: {2}, misses: {3}\r\nstreak: {4}, hstreak: {5}, mstreak:{6}", songID, songTimer, noteData.TotalNotesHit, noteData.TotalNotesMissed, noteData.CurrentHitStreak, noteData.HighestHitStreak, noteData.CurrentMissStreak);
             }
         }
 
@@ -50,11 +41,7 @@ namespace RockSnifferLib.RSHelpers
 
             copy.mode = mode;
 
-            copy.totalNotesHit = totalNotesHit;
-            copy.currentHitStreak = currentHitStreak;
-            copy.highestHitStreak = highestHitStreak;
-            copy.totalNotesMissed = totalNotesMissed;
-            copy.currentMissStreak = currentMissStreak;
+            copy.noteData = noteData;
         }
 
         /// <summary>

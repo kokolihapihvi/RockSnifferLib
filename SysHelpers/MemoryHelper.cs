@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 
 namespace RockSnifferLib.SysHelpers
 {
@@ -123,6 +124,34 @@ namespace RockSnifferLib.SysHelpers
         public static float ReadFloatFromMemory(IntPtr processHandle, IntPtr address)
         {
             return BitConverter.ToSingle(ReadBytesFromMemory(processHandle, address, 4), 0);
+        }
+
+        /// <summary>
+        /// Read a structure from a processes memory
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="rsProcessHandle"></param>
+        /// <param name="structAddress"></param>
+        /// <returns></returns>
+        public static T ReadStructureFromMemory<T>(IntPtr rsProcessHandle, IntPtr structAddress)
+        {
+            //Determine size of the structure
+            int size = Marshal.SizeOf<T>();
+
+            //Read the structure from rs memory
+            byte[] buffer = ReadBytesFromMemory(rsProcessHandle, structAddress, size);
+
+            //Pin the object in memory
+            var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+
+            //Marshal the memory to the struct
+            T obj = Marshal.PtrToStructure<T>(handle.AddrOfPinnedObject());
+
+            //Free the pinned object
+            handle.Free();
+
+            //Return marshaled struct
+            return obj;
         }
     }
 }

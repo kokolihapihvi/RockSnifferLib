@@ -179,6 +179,9 @@
     <Compile Include="Logging\Logger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RSHelpers\LazyPsarcLoader.cs" />
+    <Compile Include="RSHelpers\NoteData\INoteData.cs" />
+    <Compile Include="RSHelpers\NoteData\LearnASongNoteData.cs" />
+    <Compile Include="RSHelpers\NoteData\ScoreAttackNoteData.cs" />
     <Compile Include="RSHelpers\PSARCUtil.cs" />
     <Compile Include="RSHelpers\RSMemoryReader.cs" />
     <Compile Include="RSHelpers\RSMemoryReadout.cs" />
