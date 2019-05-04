@@ -1,4 +1,6 @@
-﻿using RockSnifferLib.Logging;
+﻿using Newtonsoft.Json;
+using RockSnifferLib.Logging;
+using RockSnifferLib.SysHelpers;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -22,7 +24,7 @@ namespace RockSnifferLib.Sniffing
 
         public ToolkitDetails toolkit;
 
-        [NonSerialized]
+        [JsonConverter(typeof(ImageBase64Converter))]
         public Image albumArt;
 
         public void Print()

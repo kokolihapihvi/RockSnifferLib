@@ -32,8 +32,13 @@ namespace RockSnifferLib.RSHelpers.NoteData
 
         public float Accuracy {
             get {
-                if (TotalNotes > 0 && TotalNotesHit > 0)
+                if (TotalNotes > 0)
                 {
+                    if(TotalNotesHit == 0)
+                    {
+                        return 0f;
+                    }
+
                     return ((float)TotalNotesHit / (float)TotalNotes) * 100f;
                 }
 

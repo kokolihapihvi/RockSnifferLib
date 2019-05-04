@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 
 namespace RockSnifferLib.Sniffing
 {
@@ -63,7 +64,15 @@ namespace RockSnifferLib.Sniffing
         /// </summary>
         private bool running = true;
 
+        /// <summary>
+        /// FileSystemWatcher to watch the dlc folder
+        /// </summary>
         private FileSystemWatcher watcher;
+
+        /// <summary>
+        /// An ActionBlock for processing psarc files
+        /// </summary>
+        private ActionBlock<string> psarcFileBlock;
 
         /// <summary>
         /// Instantiate a new Sniffer on process, using cache
@@ -161,7 +170,10 @@ namespace RockSnifferLib.Sniffing
             {
                 IncludeSubdirectories = true,
 
-                NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName
+                NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName,
+
+                //Increase buffer size to 64k to avoid losing files
+                InternalBufferSize = 1024 * 64
             };
 
             watcher.Created += PsarcFileChanged;
@@ -170,6 +182,11 @@ namespace RockSnifferLib.Sniffing
             watcher.Error += Watcher_Error;
 
             watcher.EnableRaisingEvents = true;
+
+            int parallelism = Math.Max(1, Environment.ProcessorCount);
+
+            Logger.Log("Using parallelism of {0}", parallelism);
+            psarcFileBlock = new ActionBlock<string>(psarcFile => ProcessPsarcFile(psarcFile), new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = parallelism });
 
             await Task.Run(() => ProcessAllPsarcs(path));
         }
@@ -183,27 +200,33 @@ namespace RockSnifferLib.Sniffing
         {
             var psarcFile = e.FullPath;
 
-            if (!cache.Contains(psarcFile))
+            //Add to block to process the psarc file
+            psarcFileBlock.Post(psarcFile);
+        }
+
+        private void ProcessPsarcFile(string psarcFile)
+        {
+            //Return if file is already cached
+            if (cache.Contains(psarcFile))
             {
-                //Read psarc data
-                Dictionary<string, SongDetails> allSongDetails;
-                try
-                {
-                    allSongDetails = PSARCUtil.ReadPSARCHeaderData(psarcFile);
-                }
-                catch
-                {
-                    Logger.LogError("Unable to read {0}", psarcFile);
-                    return;
-                }
+                return;
+            }
 
-                //If loading failed
-                if (allSongDetails == null)
-                {
-                    //Skip
-                    return;
-                }
+            //Read psarc data
+            Dictionary<string, SongDetails> allSongDetails;
+            try
+            {
+                allSongDetails = PSARCUtil.ReadPSARCHeaderData(psarcFile);
+            }
+            catch
+            {
+                Logger.LogError("Unable to read {0}", psarcFile);
+                return;
+            }
 
+            //If loading was successful
+            if (allSongDetails != null)
+            {
                 //Add this CDLC file to the cache
                 cache.Add(psarcFile, allSongDetails);
             }
@@ -211,49 +234,23 @@ namespace RockSnifferLib.Sniffing
 
         private void ProcessAllPsarcs(string path)
         {
-            Logger.Log("Processing all psarc files");
-
-            var sw = new Stopwatch();
-            sw.Start();
-
             //Build a list of all dlc psarc files, including songs.psarc
             List<string> psarcFiles = new List<string>
             {
-                path + "/songs.psarc"
+                path + $"{Path.DirectorySeparatorChar}songs.psarc"
             };
 
             //Go into the dlc folder
-            path = path + "/dlc";
+            path = path + $"{Path.DirectorySeparatorChar}dlc";
 
             GetAllPsarcFiles(path, psarcFiles);
-            
-            Parallel.ForEach(psarcFiles, psarcFile =>
+
+            foreach (string psarcFile in psarcFiles)
             {
-                if (!cache.Contains(psarcFile))
-                {
-                    //Read psarc data
-                    Dictionary<string, SongDetails> allSongDetails;
-                    try
-                    {
-                        allSongDetails = PSARCUtil.ReadPSARCHeaderData(psarcFile);
-                    }
-                    catch
-                    {
-                        Logger.LogError("Unable to read {0}", psarcFile);
-                        return;
-                    }
+                psarcFileBlock.Post(psarcFile);
+            }
 
-                    //If loading was successful
-                    if (allSongDetails != null)
-                    {
-                        //Add this CDLC file to the cache
-                        cache.Add(psarcFile, allSongDetails);
-                    }
-                }
-            });
-
-            sw.Stop();
-            Logger.Log("Processed {0} psarc files in {1}ms", psarcFiles.Count, sw.ElapsedMilliseconds);
+            Logger.Log("Found {0} psarc files", psarcFiles.Count);
         }
 
         private void GetAllPsarcFiles(string path, List<string> files)
