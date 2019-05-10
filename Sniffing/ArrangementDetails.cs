@@ -20,6 +20,7 @@ namespace RockSnifferLib.Sniffing
         public string arrangementID;
         public string type;
         public bool isBonusArrangement;
+        public bool isAlternateArrangement;
         public List<SectionDetails> sections = new List<SectionDetails>();
     }
 }

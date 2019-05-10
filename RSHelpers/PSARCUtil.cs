@@ -153,7 +153,8 @@ namespace RockSnifferLib.RSHelpers
                             name = attr.ArrangementName,
                             arrangementID = arrangement_id,
                             sections = sections,
-                            isBonusArrangement = (attr.ArrangementProperties.BonusArr == 1)
+                            isBonusArrangement = (attr.ArrangementProperties.BonusArr == 1),
+                            isAlternateArrangement = (attr.ArrangementProperties.Represent == 0)
                         };
 
                         //Determine path type
