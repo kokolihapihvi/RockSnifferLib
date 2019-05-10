@@ -126,23 +126,35 @@ namespace RockSnifferLib.RSHelpers
 
                         //Get a list of all sections
                         var sections = new List<ArrangementDetails.SectionDetails>();
+                        Dictionary<string, int> sectionCounts = new Dictionary<string, int>();
 
                         foreach (var sect in attr.Sections)
                         {
-                            var sectionDetails = new ArrangementDetails.SectionDetails();
-                            sectionDetails.name = sect.Name;
-                            sectionDetails.startTime = sect.StartTime;
-                            sectionDetails.endTime = sect.EndTime;
+                            if(!sectionCounts.ContainsKey(sect.Name))
+                            {
+                                sectionCounts[sect.Name] = 1;
+                            }
+
+                            var sectionDetails = new ArrangementDetails.SectionDetails
+                            {
+                                name = $"{sect.Name} {sectionCounts[sect.Name]}",
+                                startTime = sect.StartTime,
+                                endTime = sect.EndTime
+                            };
 
                             sections.Add(sectionDetails);
+
+                            sectionCounts[sect.Name]++;
                         }
 
                         //Build arrangement details
-                        var arrangementDetails = new ArrangementDetails();
-                        arrangementDetails.name = attr.ArrangementName;
-                        arrangementDetails.arrangementID = arrangement_id;
-                        arrangementDetails.sections = sections;
-                        arrangementDetails.isBonusArrangement = (attr.ArrangementProperties.BonusArr == 1);
+                        var arrangementDetails = new ArrangementDetails
+                        {
+                            name = attr.ArrangementName,
+                            arrangementID = arrangement_id,
+                            sections = sections,
+                            isBonusArrangement = (attr.ArrangementProperties.BonusArr == 1)
+                        };
 
                         //Determine path type
                         if (attr.ArrangementProperties.PathLead == 1)
