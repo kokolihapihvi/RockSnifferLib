@@ -178,6 +178,8 @@
     <Compile Include="Cache\SQLiteCache.cs" />
     <Compile Include="Events\OnMemoryReadoutArgs.cs" />
     <Compile Include="Events\OnSongChangedArgs.cs" />
+    <Compile Include="Events\OnSongEndedArgs.cs" />
+    <Compile Include="Events\OnSongStartedArgs.cs" />
     <Compile Include="Events\OnStateChangedArgs.cs" />
     <Compile Include="Logging\Logger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

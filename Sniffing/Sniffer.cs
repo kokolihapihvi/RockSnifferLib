@@ -29,6 +29,16 @@ namespace RockSnifferLib.Sniffing
         public event EventHandler<OnMemoryReadoutArgs> OnMemoryReadout;
 
         /// <summary>
+        /// Fired when a song starts
+        /// </summary>
+        public event EventHandler<OnSongStartedArgs> OnSongStarted;
+
+        /// <summary>
+        /// Fired when a song ends
+        /// </summary>
+        public event EventHandler<OnSongEndedArgs> OnSongEnded;
+
+        /// <summary>
         /// The current state of rocksmith, initial state is IN_MENUS
         /// </summary>
         public SnifferState currentState = SnifferState.NONE;
@@ -86,9 +96,33 @@ namespace RockSnifferLib.Sniffing
 
             memReader = new RSMemoryReader(rsProcess);
 
+            OnStateChanged += Sniffer_OnStateChanged;
+
             DoMemoryReadout();
             DoStateMachine();
             DoSniffing();
+        }
+
+        /// <summary>
+        /// Handle specific events based on state changes
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Sniffer_OnStateChanged(object sender, OnStateChangedArgs e)
+        {
+            var newState = e.newState;
+            var oldState = e.oldState;
+
+            if (oldState == SnifferState.IN_MENUS &&
+                newState == SnifferState.SONG_STARTING)
+            {
+                OnSongStarted?.Invoke(this, new OnSongStartedArgs { song = currentCDLCDetails });
+            }
+            else if (newState == SnifferState.IN_MENUS &&
+                oldState != SnifferState.NONE)
+            {
+                OnSongEnded?.Invoke(this, new OnSongEndedArgs { song = currentCDLCDetails });
+            }
         }
 
         private async void DoMemoryReadout()
