@@ -7,45 +7,47 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Threading;
 
 namespace RockSnifferLib.RSHelpers
 {
-    public class PSARCUtil
+    public static class PSARCUtil
     {
         /// <summary>
-        /// Extracts a 256x256 bitmap album art from PsarcLoader by artFile file path
+        /// Waits for a file to exist and be available for reading
         /// </summary>
-        /// <param name="loader"></param>
-        /// <param name="artFile"></param>
-        /// <returns></returns>
-        internal static Bitmap ExtractAlbumArt(LazyPsarcLoader loader, string artFile)
+        /// <param name="fileInfo"></param>
+        private static void WaitForFile(FileInfo fileInfo)
         {
-            //Select the correct entry and load it into the memory stream
-            using (MemoryStream ms = loader.ExtractEntryData(x => (x.Name == "gfxassets/album_art/" + artFile.Substring(14) + "_256.dds")))
+            //Check that the file exists, just in case
+            if (!fileInfo.Exists)
             {
-                //Create a Pfim image from memory stream
-                Pfim.Dds img = Pfim.Dds.Create(ms, new Pfim.PfimConfig());
-
-                //Create bitmap
-                Bitmap bm = new Bitmap(img.Width, img.Height);
-
-                //Convert Pfim image to bitmap
-                int bytesPerPixel = img.BytesPerPixel;
-                for (int i = 0; i < img.Data.Length; i += bytesPerPixel)
+                //If it doesn't exist, wait for a bit to see if it magically starts existing
+                //If you download the file directly from your browser, it might not exist
+                //immediately (though we get the notification about it early?)
+                for (int tries = 0; tries < 10; tries++)
                 {
-                    //Calculate pixel X and Y coordinates
-                    int x = (i / bytesPerPixel) % img.Width;
-                    int y = (i / bytesPerPixel) / img.Width;
-
-                    //Get color from the Pfim image data array
-                    Color c = Color.FromArgb(255, img.Data[i + 2], img.Data[i + 1], img.Data[i]);
-
-                    //Set pixel in bitmap
-                    bm.SetPixel(x, y, c);
+                    Thread.Sleep(1000);
+                    fileInfo.Refresh();
+                    if (fileInfo.Exists) break;
                 }
+            }
 
-                //Return bitmap
-                return bm;
+            //Try to open the file for reading, to detect if we are able to read it
+            for (int tries = 0; tries < 10; tries++)
+            {
+                try
+                {
+                    using (FileStream stream = fileInfo.OpenRead())
+                    {
+                        stream.Close();
+                    }
+                }
+                catch
+                {
+                    Thread.Sleep(100);
+                }
             }
         }
 
@@ -54,25 +56,25 @@ namespace RockSnifferLib.RSHelpers
         /// </summary>
         /// <param name="filepath"></param>
         /// <param name="details"></param>
-        internal static Dictionary<string, SongDetails> ReadPSARCHeaderData(string filepath)
+        internal static Dictionary<string, SongDetails> ReadPSARCHeaderData(FileInfo fileInfo)
         {
-            //Check that the file exists, just in case
-            if (!File.Exists(filepath))
+            //Wait for the file to exist
+            WaitForFile(fileInfo);
+
+            if (!fileInfo.Exists)
             {
-                Logger.LogError("Warning! Psarc file {0} does not exist!", filepath);
+                Logger.LogError("Warning! Psarc file {0} does not exist!", fileInfo.FullName);
                 return null;
             }
 
             var sw = new Stopwatch();
             sw.Start();
 
-            //If its big, print a warning
-            var fileinfo = new FileInfo(filepath);
-            long size = fileinfo.Length;
+            string fileHash = GetFileHash(fileInfo);
 
             var detailsDict = new Dictionary<string, SongDetails>();
 
-            using (LazyPsarcLoader loader = new LazyPsarcLoader(filepath))
+            using (LazyPsarcLoader loader = new LazyPsarcLoader(fileInfo))
             {
                 //Extract toolkit info
                 var tkInfo = loader.ExtractToolkitInfo();
@@ -84,7 +86,7 @@ namespace RockSnifferLib.RSHelpers
                 }
                 catch (Exception e)
                 {
-                    Logger.LogError("Warning! Could not parse psarc file {0}: {1}", Path.GetFileName(filepath), e.Message);
+                    Logger.LogError("Warning! Could not parse psarc file {0}: {1}", fileInfo.Name, e.Message);
                     return null;
                 }
 
@@ -93,13 +95,15 @@ namespace RockSnifferLib.RSHelpers
                 {
                     if (v == null)
                     {
-                        Logger.LogError("Unable to process JSON manifest for {0}", Path.GetFileName(filepath));
+                        Logger.LogError("Unable to process JSON manifest for {0}", fileInfo.Name);
                         continue;
                     }
 
                     var arrangement = v.Entries.First();
                     var arrangement_id = arrangement.Key;
                     var attr = arrangement.Value.First().Value;
+
+                    ArrangementData arrangementData = loader.ExtractArrangementData(attr);
 
                     if (attr.Phrases != null)
                     {
@@ -114,7 +118,7 @@ namespace RockSnifferLib.RSHelpers
                         {
                             try
                             {
-                                details.albumArt = ExtractAlbumArt(loader, attr.AlbumArt);
+                                details.albumArt = loader.ExtractAlbumArt(attr);
                             }
                             catch (Exception)
                             {
@@ -130,7 +134,7 @@ namespace RockSnifferLib.RSHelpers
 
                         foreach (var sect in attr.Sections)
                         {
-                            if(!sectionCounts.ContainsKey(sect.Name))
+                            if (!sectionCounts.ContainsKey(sect.Name))
                             {
                                 sectionCounts[sect.Name] = 1;
                             }
@@ -153,6 +157,7 @@ namespace RockSnifferLib.RSHelpers
                             name = attr.ArrangementName,
                             arrangementID = arrangement_id,
                             sections = sections,
+                            data = arrangementData,
                             isBonusArrangement = (attr.ArrangementProperties.BonusArr == 1),
                             isAlternateArrangement = (attr.ArrangementProperties.Represent == 0)
                         };
@@ -170,6 +175,11 @@ namespace RockSnifferLib.RSHelpers
                         {
                             arrangementDetails.type = "Bass";
                         }
+
+                        arrangementDetails.tuning = new ArrangementTuning(attr.Tuning, (int)attr.CentOffset, (int)attr.CapoFret);
+
+                        //file hash
+                        details.psarcFileHash = fileHash;
 
                         //Get general song information
                         details.songID = attr.SongKey;
@@ -193,11 +203,22 @@ namespace RockSnifferLib.RSHelpers
 
                 sw.Stop();
 
-                Logger.Log("Parsed {0} ({1}mb) in {2}ms and found {3} songs", fileinfo.Name, fileinfo.Length / 1024 / 1024, sw.ElapsedMilliseconds, detailsDict.Count);
+                Logger.Log("Parsed {0} ({1}mb) in {2}ms and found {3} songs", fileInfo.Name, fileInfo.Length / 1024 / 1024, sw.ElapsedMilliseconds, detailsDict.Count);
 
                 return detailsDict;
             }
 
+        }
+
+        public static string GetFileHash(FileInfo fileInfo)
+        {
+            WaitForFile(fileInfo);
+
+            //Calculate file hash
+            using (var stream = fileInfo.OpenRead())
+            {
+                return Convert.ToBase64String(MD5.Create().ComputeHash(stream));
+            }
         }
     }
 }

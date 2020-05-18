@@ -10,7 +10,7 @@ namespace RockSnifferLib.Cache
         /// </summary>
         /// <param name="filepath"></param>
         /// <returns></returns>
-        bool Contains(string filepath);
+        bool Contains(string filepath, string fileHash);
 
         /// <summary>
         /// Loads a cached version of a file
@@ -32,5 +32,11 @@ namespace RockSnifferLib.Cache
         /// <param name="filepath"></param>
         /// <param name="details"></param>
         void Add(string filepath, Dictionary<string, SongDetails> allDetails);
+
+        /// <summary>
+        /// Remove all details of a filepath from the cache
+        /// </summary>
+        /// <param name="filepath"></param>
+        void Remove(string filepath);
     }
 }

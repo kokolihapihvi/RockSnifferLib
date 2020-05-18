@@ -11,7 +11,12 @@ namespace RockSnifferLib.Cache
 
         }
 
-        public bool Contains(string filepath)
+        public void Remove(string filepath)
+        {
+            
+        }
+
+        public bool Contains(string filepath, string fileHash)
         {
             return false;
         }

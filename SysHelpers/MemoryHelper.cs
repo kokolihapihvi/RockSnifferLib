@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace RockSnifferLib.SysHelpers
@@ -16,7 +17,7 @@ namespace RockSnifferLib.SysHelpers
         {
             int bytesRead = 0;
 
-            Win32API.ReadProcessMemory((int)processHandle, (int)address, buffer, bytes, ref bytesRead);
+            Win32API.ReadProcessMemory(processHandle, address, buffer, bytes, ref bytesRead);
 
             return bytesRead;
         }
@@ -33,11 +34,32 @@ namespace RockSnifferLib.SysHelpers
             int bytesRead = 0;
             byte[] buf = new byte[bytes];
 
-            Win32API.ReadProcessMemory((int)processHandle, (int)address, buf, bytes, ref bytesRead);
+            Win32API.ReadProcessMemory(processHandle, address, buf, bytes, ref bytesRead);
 
             return buf;
         }
 
+        /// <summary>
+        /// Write a byte array to memory
+        /// </summary>
+        /// <param name="processHandle"></param>
+        /// <param name="address"></param>
+        /// <param name="bytes"></param>
+        /// <returns></returns>
+        public static int WriteBytesToMemory(IntPtr processHandle, IntPtr address, byte[] bytes)
+        {
+            Win32API.WriteProcessMemory(processHandle, address, bytes, bytes.Length, out int bytesWritten);
+
+            return bytesWritten;
+        }
+
+        /// <summary>
+        /// Read an ascii null terminated string from memory
+        /// </summary>
+        /// <param name="processHandle"></param>
+        /// <param name="address"></param>
+        /// <param name="maxLength"></param>
+        /// <returns></returns>
         public static string ReadStringFromMemory(IntPtr processHandle, IntPtr address, int maxLength = 128)
         {
             //Dont read garbage
@@ -65,7 +87,7 @@ namespace RockSnifferLib.SysHelpers
             //Verify that all characters are in range 32-126 (basic ascii)
             foreach (char c in chars)
             {
-                if(c < 32 || c > 126)
+                if (c < 32 || c > 126)
                 {
                     return null;
                 }

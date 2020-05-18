@@ -56,6 +56,20 @@ namespace RockSnifferLib.Logging
         }
 
         /// <summary>
+        /// Logs an exception with message and stacktrace
+        /// </summary>
+        /// <param name="e"></param>
+        public static void LogException(Exception e)
+        {
+            string pattern = $"{e.Message}\n{e.StackTrace}";
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(pattern);
+            Console.ResetColor();
+
+            WriteToFile("sniffer.log", pattern + "\r\n");
+        }
+
+        /// <summary>
         /// Logs a message into the console
         /// </summary>
         /// <param name="pattern"></param>

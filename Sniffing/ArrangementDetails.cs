@@ -1,8 +1,6 @@
-﻿using System;
+﻿using RockSnifferLib.RSHelpers;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace RockSnifferLib.Sniffing
 {
@@ -21,6 +19,8 @@ namespace RockSnifferLib.Sniffing
         public string type;
         public bool isBonusArrangement;
         public bool isAlternateArrangement;
+        public ArrangementTuning tuning;
         public List<SectionDetails> sections = new List<SectionDetails>();
+        public ArrangementData data;
     }
 }

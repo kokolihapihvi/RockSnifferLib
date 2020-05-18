@@ -25,7 +25,7 @@ namespace RockSnifferLib.Cache
         /// </summary>
         /// <param name="filepath"></param>
         /// <returns></returns>
-        public bool Contains(string filepath)
+        public bool Contains(string filepath, string fileHash)
         {
             string cachedfiledir = cachedir + Path.DirectorySeparatorChar + SanitizeFilename(Path.GetFileNameWithoutExtension(filepath)) + Path.DirectorySeparatorChar;
             return Directory.Exists(cachedfiledir);
@@ -137,6 +137,11 @@ namespace RockSnifferLib.Cache
             {
                 Logger.Log("Cached {0}", Path.GetFileName(filepath));
             }
+        }
+
+        public void Remove(string filepath)
+        {
+            throw new System.NotImplementedException();
         }
 
         private string SanitizeFilename(string filename)

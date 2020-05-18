@@ -39,6 +39,11 @@ namespace RockSnifferLib.Sniffing
         public event EventHandler<OnSongEndedArgs> OnSongEnded;
 
         /// <summary>
+        /// Fired when a new psarc file is added to the dlc folder
+        /// </summary>
+        public event EventHandler<OnPsarcInstalledArgs> OnPsarcInstalled;
+
+        /// <summary>
         /// The current state of rocksmith, initial state is IN_MENUS
         /// </summary>
         public SnifferState currentState = SnifferState.NONE;
@@ -228,33 +233,65 @@ namespace RockSnifferLib.Sniffing
         private void Watcher_Error(object sender, ErrorEventArgs e)
         {
             Logger.LogError("FileSystemWatcher Error: {0}", e.GetException().Message);
+            Logger.LogException(e.GetException());
         }
 
+        /// <summary>
+        /// Queue to keep track of files that are due for parsing
+        /// to avoid parsing the same file multiple times
+        /// </summary>
+        private static List<string> processingQueue = new List<string>();
         private void PsarcFileChanged(object sender, FileSystemEventArgs e)
         {
             var psarcFile = e.FullPath;
+
+            //Avoid duplicates in the block
+            if (processingQueue.Contains(psarcFile)) return;
+
+            processingQueue.Add(psarcFile);
 
             //Add to block to process the psarc file
             psarcFileBlock.Post(psarcFile);
         }
 
+        private void PsarcFileProcessingDone(string psarcFile, bool success)
+        {
+            //If file was in the queue (triggered by filesystemwatcher)
+            if(processingQueue.Contains(psarcFile))
+            {
+                //If processing was successful, invoke event
+                if(success) OnPsarcInstalled?.Invoke(this, new OnPsarcInstalledArgs() { FilePath = psarcFile });
+
+                //Remove from queue
+                processingQueue.Remove(psarcFile);
+            }
+        }
+
         private void ProcessPsarcFile(string psarcFile)
         {
+            var fileInfo = new FileInfo(psarcFile);
+
             //Return if file is already cached
-            if (cache.Contains(psarcFile))
+            if (cache.Contains(psarcFile, PSARCUtil.GetFileHash(fileInfo)))
             {
+                PsarcFileProcessingDone(psarcFile, false);
                 return;
             }
+
+            //In case file hash was different
+            cache.Remove(psarcFile);
 
             //Read psarc data
             Dictionary<string, SongDetails> allSongDetails;
             try
             {
-                allSongDetails = PSARCUtil.ReadPSARCHeaderData(psarcFile);
+                allSongDetails = PSARCUtil.ReadPSARCHeaderData(fileInfo);
             }
-            catch
+            catch (Exception e)
             {
                 Logger.LogError("Unable to read {0}", psarcFile);
+                Logger.LogException(e);
+                PsarcFileProcessingDone(psarcFile, false);
                 return;
             }
 
@@ -264,6 +301,8 @@ namespace RockSnifferLib.Sniffing
                 //Add this CDLC file to the cache
                 cache.Add(psarcFile, allSongDetails);
             }
+
+            PsarcFileProcessingDone(psarcFile, true);
         }
 
         private void ProcessAllPsarcs(string path)

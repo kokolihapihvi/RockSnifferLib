@@ -27,6 +27,8 @@ namespace RockSnifferLib.Sniffing
         [JsonConverter(typeof(ImageBase64Converter))]
         public Image albumArt;
 
+        public string psarcFileHash;
+
         public void Print()
         {
             //Print details into the console if they are valid

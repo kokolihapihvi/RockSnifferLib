@@ -10,7 +10,7 @@ namespace RockSnifferLib.Cache
 
         public void Add(string filepath, Dictionary<string, SongDetails> allDetails)
         {
-            if (Contains(filepath))
+            if (Contains(filepath, ""))
             {
                 return;
             }
@@ -18,14 +18,19 @@ namespace RockSnifferLib.Cache
             Cache.Add(filepath, allDetails);
         }
 
-        public bool Contains(string filepath)
+        public void Remove(string filepath)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public bool Contains(string filepath, string fileHash)
         {
             return Cache.ContainsKey(filepath);
         }
 
         public SongDetails Get(string filepath, string songID)
         {
-            if (!Contains(filepath))
+            if (!Contains(filepath, ""))
             {
                 return null;
             }

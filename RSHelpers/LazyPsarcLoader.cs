@@ -3,8 +3,10 @@ using RocksmithToolkitLib.DLCPackage;
 using RocksmithToolkitLib.DLCPackage.Manifest2014;
 using RocksmithToolkitLib.Extensions;
 using RocksmithToolkitLib.PsarcLoader;
+using RocksmithToolkitLib.Sng2014HSL;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -18,10 +20,10 @@ namespace RockSnifferLib.RSHelpers
         private readonly string _filePath;
         private Stream _fileStream;
 
-        public LazyPsarcLoader(string fileName, bool useMemory = true, bool lazy = true)
+        public LazyPsarcLoader(FileInfo fileInfo, bool useMemory = true, bool lazy = true)
         {
-            _filePath = fileName;
-            _archive = new PSARC(true);
+            _filePath = fileInfo.FullName;
+            _archive = new PSARC(useMemory);
 
             //Try to open the file over 10 seconds
             int tries = 0;
@@ -29,7 +31,7 @@ namespace RockSnifferLib.RSHelpers
             {
                 try
                 {
-                    _fileStream = File.OpenRead(_filePath);
+                    _fileStream = fileInfo.OpenRead();
                 }
                 catch (Exception e)
                 {
@@ -82,6 +84,31 @@ namespace RockSnifferLib.RSHelpers
             return null;
         }
 
+        internal ArrangementData ExtractArrangementData(Attributes2014 attr)
+        {
+            string sngFilePath = $"songs/bin/generic/{attr.SongXml.Substring(20)}.sng";
+            var entry = _archive.TOC.Where(x => x.Name.Equals(sngFilePath)).FirstOrDefault();
+
+            if (entry == null)
+                throw new Exception($"Could not find arrangement sng {_filePath}/{sngFilePath}");
+
+            ArrangementData data = null;
+
+            _archive.InflateEntry(entry);
+            entry.Data.Position = 0;
+
+            var sng = Sng2014File.ReadSng(entry.Data, new RocksmithToolkitLib.Platform(RocksmithToolkitLib.GamePlatform.Pc, RocksmithToolkitLib.GameVersion.RS2014));
+
+            if (sng == null)
+                throw new Exception($"Could not read sng {_filePath}{sngFilePath}");
+
+            data = new ArrangementData(sng);
+
+            entry.Dispose();
+
+            return data;
+        }
+
         public List<Manifest2014<Attributes2014>> ExtractJsonManifests()
         {
             // every song contains gamesxblock but may not contain showlights.xml
@@ -108,13 +135,15 @@ namespace RockSnifferLib.RSHelpers
 
                     _archive.InflateEntry(jsonEntry);
                     jsonEntry.Data.Position = 0;
-                    var ms = new MemoryStream();
-                    using (var reader = new StreamReader(ms, new UTF8Encoding(), false, 65536)) //4Kb is default alloc size for windows .. 64Kb is default PSARC alloc
+                    using (var ms = new MemoryStream())
                     {
-                        jsonEntry.Data.Position = 0;
                         jsonEntry.Data.CopyTo(ms);
                         ms.Position = 0;
-                        dataObj = JsonConvert.DeserializeObject<Manifest2014<Attributes2014>>(reader.ReadToEnd());
+
+                        using (var reader = new StreamReader(ms, new UTF8Encoding(), false, 65536)) //4Kb is default alloc size for windows .. 64Kb is default PSARC alloc
+                        {
+                            dataObj = JsonConvert.DeserializeObject<Manifest2014<Attributes2014>>(reader.ReadToEnd());
+                        }
                     }
 
                     jsonData.Add(dataObj);
@@ -122,6 +151,43 @@ namespace RockSnifferLib.RSHelpers
             }
 
             return jsonData;
+        }
+
+        /// <summary>
+        /// Extracts a 256x256 bitmap album art from PsarcLoader
+        /// </summary>
+        /// <param name="loader"></param>
+        /// <param name="artFile"></param>
+        /// <returns></returns>
+        internal Bitmap ExtractAlbumArt(Attributes2014 attr)
+        {
+            //Select the correct entry and load it into the memory stream
+            using (MemoryStream ms = ExtractEntryData(x => (x.Name == "gfxassets/album_art/" + attr.AlbumArt.Substring(14) + "_256.dds")))
+            {
+                //Create a Pfim image from memory stream
+                Pfim.Dds img = Pfim.Dds.Create(ms, new Pfim.PfimConfig());
+
+                //Create bitmap
+                Bitmap bm = new Bitmap(img.Width, img.Height);
+
+                //Convert Pfim image to bitmap
+                int bytesPerPixel = img.BytesPerPixel;
+                for (int i = 0; i < img.Data.Length; i += bytesPerPixel)
+                {
+                    //Calculate pixel X and Y coordinates
+                    int x = (i / bytesPerPixel) % img.Width;
+                    int y = (i / bytesPerPixel) / img.Width;
+
+                    //Get color from the Pfim image data array
+                    Color c = Color.FromArgb(255, img.Data[i + 2], img.Data[i + 1], img.Data[i]);
+
+                    //Set pixel in bitmap
+                    bm.SetPixel(x, y, c);
+                }
+
+                //Return bitmap
+                return bm;
+            }
         }
 
         public ToolkitInfo ExtractToolkitInfo()

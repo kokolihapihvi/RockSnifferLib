@@ -30,16 +30,17 @@ namespace RockSnifferLib.Cache
         {
             var q = @"
             CREATE TABLE IF NOT EXISTS `songs` (
-	            `id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-	            `psarcFile`	TEXT NOT NULL,
-	            `songid`	TEXT NOT NULL,
-	            `songname`	TEXT NOT NULL,
-	            `artistname`	TEXT NOT NULL,
-	            `albumname`	TEXT,
-	            `songLength`	REAL,
-	            `albumYear`	INTEGER,
-	            `arrangements`	TEXT,
-                `album_art`	BLOB,
+	            `id`                INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+	            `psarcFile`         TEXT NOT NULL,
+	            `psarcFileHash` 	TEXT NOT NULL,
+	            `songid`            TEXT NOT NULL,
+	            `songname`          TEXT NOT NULL,
+	            `artistname`	    TEXT NOT NULL,
+	            `albumname`         TEXT,
+	            `songLength`	    REAL,
+	            `albumYear`         INTEGER,
+	            `arrangements`	    TEXT,
+                `album_art`	        BLOB,
 	            `toolkit_version`	TEXT,
 	            `toolkit_author`	TEXT,
 	            `toolkit_package_version`	TEXT,
@@ -79,6 +80,7 @@ namespace RockSnifferLib.Cache
             var q = @"
             INSERT INTO `songs`(
                 `psarcFile`,
+                `psarcFileHash`,
                 `songid`,
                 `songname`,
                 `artistname`,
@@ -92,7 +94,7 @@ namespace RockSnifferLib.Cache
                 `toolkit_package_version`,
                 `toolkit_comment`
             )
-            VALUES (@psarcFile,@songid,@songname,@artistname,@albumname,@songLength,@albumYear,@arrangements,@album_art,@toolkit_version,@toolkit_author,@toolkit_package_version,@toolkit_comment);
+            VALUES (@psarcFile,@psarcFileHash,@songid,@songname,@artistname,@albumname,@songLength,@albumYear,@arrangements,@album_art,@toolkit_version,@toolkit_author,@toolkit_package_version,@toolkit_comment);
             ";
 
             using (var cmd = Connection.CreateCommand())
@@ -100,6 +102,7 @@ namespace RockSnifferLib.Cache
                 cmd.CommandText = q;
 
                 cmd.Parameters.Add("@psarcFile", System.Data.DbType.String);
+                cmd.Parameters.Add("@psarcFileHash", System.Data.DbType.String);
                 cmd.Parameters.Add("@songid", System.Data.DbType.String);
                 cmd.Parameters.Add("@songname", System.Data.DbType.String);
                 cmd.Parameters.Add("@artistname", System.Data.DbType.String);
@@ -118,6 +121,7 @@ namespace RockSnifferLib.Cache
                     var sd = pair.Value;
 
                     cmd.Parameters["@psarcFile"].Value = filepath;
+                    cmd.Parameters["@psarcFileHash"].Value = sd.psarcFileHash;
                     cmd.Parameters["@songid"].Value = sd.songID;
                     cmd.Parameters["@songname"].Value = sd.songName;
                     cmd.Parameters["@artistname"].Value = sd.artistName;
@@ -151,14 +155,28 @@ namespace RockSnifferLib.Cache
             }
         }
 
-        public bool Contains(string filepath)
+        public void Remove(string filepath)
         {
-            string q = @"SELECT EXISTS(SELECT 1 FROM songs WHERE psarcFile = @psarcFile)";
+            string q = @"DELETE FROM `songs` WHERE psarcFile = @psarcFile";
 
             using (var cmd = Connection.CreateCommand())
             {
                 cmd.CommandText = q;
                 cmd.Parameters.AddWithValue("@psarcFile", filepath);
+
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public bool Contains(string filepath, string fileHash)
+        {
+            string q = @"SELECT EXISTS(SELECT 1 FROM songs WHERE psarcFile = @psarcFile and psarcFileHash = @psarcFileHash)";
+
+            using (var cmd = Connection.CreateCommand())
+            {
+                cmd.CommandText = q;
+                cmd.Parameters.AddWithValue("@psarcFile", filepath);
+                cmd.Parameters.AddWithValue("@psarcFileHash", fileHash);
 
                 var result = cmd.ExecuteScalar();
                 return (long)result == 1;
@@ -185,13 +203,14 @@ namespace RockSnifferLib.Cache
                     {
                         var sd = new SongDetails
                         {
-                            songID = reader.GetString(reader.GetOrdinal("songid")),
-                            songName = reader.GetString(reader.GetOrdinal("songname")),
-                            artistName = reader.GetString(reader.GetOrdinal("artistname")),
-                            albumName = reader.GetString(reader.GetOrdinal("albumname")),
-                            songLength = reader.GetFloat(reader.GetOrdinal("songLength")),
-                            albumYear = reader.GetInt32(reader.GetOrdinal("albumYear")),
-                            arrangements = JsonConvert.DeserializeObject<List<ArrangementDetails>>(reader.GetString(reader.GetOrdinal("arrangements"))),
+                            psarcFileHash = ReadField<string>(reader, "psarcFileHash"),
+                            songID = ReadField<string>(reader, "songid"),
+                            songName = ReadField<string>(reader, "songname"),
+                            artistName = ReadField<string>(reader, "artistname"),
+                            albumName = ReadField<string>(reader, "albumname"),
+                            songLength = (float)ReadField<double>(reader, "songLength"),
+                            albumYear = (int)ReadField<long>(reader, "albumYear"),
+                            arrangements = JsonConvert.DeserializeObject<List<ArrangementDetails>>(ReadField<string>(reader, "arrangements")),
                             albumArt = null,
 
                             toolkit = new ToolkitDetails
@@ -205,7 +224,6 @@ namespace RockSnifferLib.Cache
 
                         try
                         {
-
                             var blob = ReadField<byte[]>(reader, "album_art");
 
                             using (var ms = new MemoryStream(blob))
