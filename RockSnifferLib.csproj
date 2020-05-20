@@ -80,8 +80,8 @@
     <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
-    <Reference Include="Pfim, Version=0.9.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Pfim.0.9.1\lib\netstandard2.0\Pfim.dll</HintPath>
+    <Reference Include="Pfim, Version=0.7.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Pfim.0.7.0\lib\netstandard1.3\Pfim.dll</HintPath>
     </Reference>
     <Reference Include="RocksmithToolkitLib, Version=2.7.1.0, Culture=neutral, processorArchitecture=AMD64">
       <SpecificVersion>False</SpecificVersion>
@@ -181,6 +181,7 @@
     <Compile Include="Cache\NullCache.cs" />
     <Compile Include="Cache\MemoryCache.cs" />
     <Compile Include="Cache\SQLiteCache.cs" />
+    <Compile Include="Config\SnifferSettings.cs" />
     <Compile Include="Events\OnMemoryReadoutArgs.cs" />
     <Compile Include="Events\OnPsarcInstalledArgs.cs" />
     <Compile Include="Events\OnSongChangedArgs.cs" />

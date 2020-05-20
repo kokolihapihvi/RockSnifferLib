@@ -23,6 +23,16 @@ namespace RockSnifferLib.RSHelpers
         }
 
         /// <summary>
+        /// Sets the enumerate flag to 1, causing rocksmith to start enumerating
+        /// </summary>
+        public void TriggerEnumeration()
+        {
+            IntPtr addr = FollowPointers(0xF71E10, new int[] { 0x8, 0x4 });
+
+            MemoryHelper.WriteBytesToMemory(rsProcessHandle, addr, new byte[] { 0x01 });
+        }
+
+        /// <summary>
         /// Read song timer and note data from memory
         /// </summary>
         /// <returns></returns>

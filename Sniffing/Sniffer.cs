@@ -1,4 +1,5 @@
 ﻿using RockSnifferLib.Cache;
+using RockSnifferLib.Configuration;
 using RockSnifferLib.Events;
 using RockSnifferLib.Logging;
 using RockSnifferLib.RSHelpers;
@@ -62,17 +63,17 @@ namespace RockSnifferLib.Sniffing
         /// <summary>
         /// Reference to the rocksmith process
         /// </summary>
-        private Process rsProcess;
+        private readonly Process rsProcess;
 
         /// <summary>
         /// Cache to use
         /// </summary>
-        private ICache cache;
+        private readonly ICache cache;
 
         /// <summary>
         /// The memory reader
         /// </summary>
-        private RSMemoryReader memReader;
+        private readonly RSMemoryReader memReader;
 
         /// <summary>
         /// Boolean to let async tasks finish
@@ -94,18 +95,47 @@ namespace RockSnifferLib.Sniffing
         /// </summary>
         /// <param name="rsProcess"></param>
         /// <param name="cache"></param>
-        public Sniffer(Process rsProcess, ICache cache)
+        public Sniffer(Process rsProcess, ICache cache, SnifferSettings settings = null)
         {
+            //Use default settings if no settings were given
+            if (settings == null) settings = new SnifferSettings();
+
             this.rsProcess = rsProcess;
             this.cache = cache;
 
+            //Initialise memory reader
             memReader = new RSMemoryReader(rsProcess);
 
             OnStateChanged += Sniffer_OnStateChanged;
 
+            //Listen to PsarcInstalled event for auto enumeration
+            if (settings.enableAutoEnumeration)
+            {
+                OnPsarcInstalled += Sniffer_OnPsarcInstalled;
+            }
+
             DoMemoryReadout();
             DoStateMachine();
             DoSniffing();
+        }
+
+        /// <summary>
+        /// Trigger enumeration when a new psarc file is installed
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Sniffer_OnPsarcInstalled(object sender, OnPsarcInstalledArgs e)
+        {
+            Logger.Log("New PSARC file installed: {0}", e.FilePath);
+            TriggerEnumeration();
+        }
+
+        /// <summary>
+        /// Trigger the enumerate flag, causing rocksmith to start enumerating
+        /// </summary>
+        public void TriggerEnumeration()
+        {
+            memReader.TriggerEnumeration();
         }
 
         /// <summary>
@@ -257,10 +287,10 @@ namespace RockSnifferLib.Sniffing
         private void PsarcFileProcessingDone(string psarcFile, bool success)
         {
             //If file was in the queue (triggered by filesystemwatcher)
-            if(processingQueue.Contains(psarcFile))
+            if (processingQueue.Contains(psarcFile))
             {
                 //If processing was successful, invoke event
-                if(success) OnPsarcInstalled?.Invoke(this, new OnPsarcInstalledArgs() { FilePath = psarcFile });
+                if (success) OnPsarcInstalled?.Invoke(this, new OnPsarcInstalledArgs() { FilePath = psarcFile });
 
                 //Remove from queue
                 processingQueue.Remove(psarcFile);
