@@ -5,6 +5,6 @@ namespace RockSnifferLib.Configuration
     [Serializable]
     public class SnifferSettings
     {
-        public bool enableAutoEnumeration = false;
+        public bool enableAutoEnumeration = true;
     }
 }
