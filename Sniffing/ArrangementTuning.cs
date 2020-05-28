@@ -40,16 +40,16 @@ namespace RockSnifferLib.Sniffing
 
                 //Find the tuning name in the dictionary
                 KeyValuePair<string, ArrangementTuning> tuningNamePair = _TuningNames.FirstOrDefault(kvp => kvp.Value.Equals(this));
-                if (!tuningNamePair.Equals(default(KeyValuePair<string,ArrangementTuning>))) name = tuningNamePair.Key;
+                if (!tuningNamePair.Equals(default(KeyValuePair<string, ArrangementTuning>))) name = tuningNamePair.Key;
 
                 //Calculate estimated hz offset from cents offset, if nonzero
                 if (CentsOffset != 0)
                 {
-                    name = $"{name}: A{440 + Math.Floor(CentsOffset / 4f)}";
+                    name = $"{name}: A{Math.Floor(440d * Math.Pow(2d, CentsOffset / 1200d))}";
                 }
 
                 //Add capo fret
-                if(CapoFret != 0)
+                if (CapoFret != 0)
                 {
                     name = $"{name} (Capo Fret {CapoFret})";
                 }
