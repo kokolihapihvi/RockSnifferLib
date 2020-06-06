@@ -2,6 +2,7 @@
 using RockSnifferLib.Logging;
 using RockSnifferLib.Sniffing;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SQLite;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -101,20 +102,20 @@ namespace RockSnifferLib.Cache
             {
                 cmd.CommandText = q;
 
-                cmd.Parameters.Add("@psarcFile", System.Data.DbType.String);
-                cmd.Parameters.Add("@psarcFileHash", System.Data.DbType.String);
-                cmd.Parameters.Add("@songid", System.Data.DbType.String);
-                cmd.Parameters.Add("@songname", System.Data.DbType.String);
-                cmd.Parameters.Add("@artistname", System.Data.DbType.String);
-                cmd.Parameters.Add("@albumname", System.Data.DbType.String);
-                cmd.Parameters.Add("@songLength", System.Data.DbType.Single);
-                cmd.Parameters.Add("@albumYear", System.Data.DbType.Int32);
-                cmd.Parameters.Add("@arrangements", System.Data.DbType.String);
-                cmd.Parameters.Add("@album_art", System.Data.DbType.Binary);
-                cmd.Parameters.Add("@toolkit_version", System.Data.DbType.String);
-                cmd.Parameters.Add("@toolkit_author", System.Data.DbType.String);
-                cmd.Parameters.Add("@toolkit_package_version", System.Data.DbType.String);
-                cmd.Parameters.Add("@toolkit_comment", System.Data.DbType.String);
+                cmd.Parameters.Add("@psarcFile", DbType.String);
+                cmd.Parameters.Add("@psarcFileHash", DbType.String);
+                cmd.Parameters.Add("@songid", DbType.String);
+                cmd.Parameters.Add("@songname", DbType.String);
+                cmd.Parameters.Add("@artistname", DbType.String);
+                cmd.Parameters.Add("@albumname", DbType.String);
+                cmd.Parameters.Add("@songLength", DbType.Single);
+                cmd.Parameters.Add("@albumYear", DbType.Int32);
+                cmd.Parameters.Add("@arrangements", DbType.String);
+                cmd.Parameters.Add("@album_art", DbType.Binary);
+                cmd.Parameters.Add("@toolkit_version", DbType.String);
+                cmd.Parameters.Add("@toolkit_author", DbType.String);
+                cmd.Parameters.Add("@toolkit_package_version", DbType.String);
+                cmd.Parameters.Add("@toolkit_comment", DbType.String);
 
                 foreach (KeyValuePair<string, SongDetails> pair in allDetails)
                 {
@@ -155,8 +156,9 @@ namespace RockSnifferLib.Cache
             }
         }
 
-        public void Remove(string filepath)
+        public void Remove(string filepath, List<string> songIDs)
         {
+            //Remove identical files
             string q = @"DELETE FROM `songs` WHERE psarcFile = @psarcFile";
 
             using (var cmd = Connection.CreateCommand())
@@ -165,6 +167,22 @@ namespace RockSnifferLib.Cache
                 cmd.Parameters.AddWithValue("@psarcFile", filepath);
 
                 cmd.ExecuteNonQuery();
+            }
+
+            //Remove identical song IDs
+            q = @"DELETE FROM `songs` WHERE songid = @songid";
+
+            using (var cmd = Connection.CreateCommand())
+            {
+                cmd.CommandText = q;
+                cmd.Parameters.Add("@songid", DbType.String);
+
+                foreach (string songid in songIDs)
+                {
+                    cmd.Parameters["@songid"].Value = songid;
+
+                    cmd.ExecuteNonQuery();
+                }
             }
         }
 

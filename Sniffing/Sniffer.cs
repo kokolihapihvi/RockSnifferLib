@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
@@ -308,9 +309,6 @@ namespace RockSnifferLib.Sniffing
                 return;
             }
 
-            //In case file hash was different
-            cache.Remove(psarcFile);
-
             //Read psarc data
             Dictionary<string, SongDetails> allSongDetails;
             try
@@ -328,6 +326,11 @@ namespace RockSnifferLib.Sniffing
             //If loading was successful
             if (allSongDetails != null)
             {
+                //In case file hash was different
+                //or if this is a newer psarc with the same song ids
+                //Remove all existing entries
+                cache.Remove(psarcFile, allSongDetails.Keys.ToList());
+
                 //Add this CDLC file to the cache
                 cache.Add(psarcFile, allSongDetails);
             }

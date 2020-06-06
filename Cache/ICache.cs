@@ -34,9 +34,9 @@ namespace RockSnifferLib.Cache
         void Add(string filepath, Dictionary<string, SongDetails> allDetails);
 
         /// <summary>
-        /// Remove all details of a filepath from the cache
+        /// Remove all details of a filepath and all song IDs from the cache
         /// </summary>
         /// <param name="filepath"></param>
-        void Remove(string filepath);
+        void Remove(string filepath, List<string> songIDs);
     }
 }

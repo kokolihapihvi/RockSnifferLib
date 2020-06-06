@@ -139,7 +139,7 @@ namespace RockSnifferLib.Cache
             }
         }
 
-        public void Remove(string filepath)
+        public void Remove(string filepath, List<string> songIDs)
         {
             throw new System.NotImplementedException();
         }

@@ -18,7 +18,7 @@ namespace RockSnifferLib.Cache
             Cache.Add(filepath, allDetails);
         }
 
-        public void Remove(string filepath)
+        public void Remove(string filepath, List<string> songIDs)
         {
             throw new System.NotImplementedException();
         }
