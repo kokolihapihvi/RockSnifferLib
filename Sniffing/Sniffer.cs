@@ -64,17 +64,22 @@ namespace RockSnifferLib.Sniffing
         /// <summary>
         /// Reference to the rocksmith process
         /// </summary>
-        private readonly Process rsProcess;
+        private readonly Process _rsProcess;
 
         /// <summary>
         /// Cache to use
         /// </summary>
-        private readonly ICache cache;
+        private readonly ICache _cache;
 
         /// <summary>
         /// The memory reader
         /// </summary>
         private readonly RSMemoryReader memReader;
+
+        /// <summary>
+        /// Settings this sniffer was instantiated with
+        /// </summary>
+        private readonly SnifferSettings _settings;
 
         /// <summary>
         /// Boolean to let async tasks finish
@@ -101,8 +106,9 @@ namespace RockSnifferLib.Sniffing
             //Use default settings if no settings were given
             if (settings == null) settings = new SnifferSettings();
 
-            this.rsProcess = rsProcess;
-            this.cache = cache;
+            _rsProcess = rsProcess;
+            _cache = cache;
+            _settings = settings;
 
             //Initialise memory reader
             memReader = new RSMemoryReader(rsProcess);
@@ -189,11 +195,11 @@ namespace RockSnifferLib.Sniffing
 
                 if (newReadout.songID != currentMemoryReadout.songID || (currentCDLCDetails == null || !currentCDLCDetails.IsValid()))
                 {
-                    var newDetails = cache.Get(newReadout.songID);
+                    var newDetails = _cache.Get(newReadout.songID);
 
                     if (newDetails != null && newDetails.IsValid())
                     {
-                        currentCDLCDetails = cache.Get(newReadout.songID);
+                        currentCDLCDetails = _cache.Get(newReadout.songID);
                         OnSongChanged?.Invoke(this, new OnSongChangedArgs { songDetails = currentCDLCDetails });
                         currentCDLCDetails.Print();
                     }
@@ -234,7 +240,7 @@ namespace RockSnifferLib.Sniffing
         private async void DoSniffing()
         {
             //Get path to rs directory
-            var path = Path.GetDirectoryName(rsProcess.MainModule.FileName);
+            var path = Path.GetDirectoryName(_rsProcess.MainModule.FileName);
 
             watcher = new FileSystemWatcher(path + Path.DirectorySeparatorChar + "dlc", "*.psarc")
             {
@@ -254,6 +260,9 @@ namespace RockSnifferLib.Sniffing
             watcher.EnableRaisingEvents = true;
 
             int parallelism = Math.Max(1, Environment.ProcessorCount);
+
+            //Use parallelism value from settings
+            if (_settings.parallelism > 0) parallelism = _settings.parallelism;
 
             Logger.Log("Using parallelism of {0}", parallelism);
             psarcFileBlock = new ActionBlock<string>(psarcFile => ProcessPsarcFile(psarcFile), new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = parallelism });
@@ -303,7 +312,7 @@ namespace RockSnifferLib.Sniffing
             var fileInfo = new FileInfo(psarcFile);
 
             //Return if file is already cached
-            if (cache.Contains(psarcFile, PSARCUtil.GetFileHash(fileInfo)))
+            if (_cache.Contains(psarcFile, PSARCUtil.GetFileHash(fileInfo)))
             {
                 PsarcFileProcessingDone(psarcFile, false);
                 return;
@@ -329,10 +338,10 @@ namespace RockSnifferLib.Sniffing
                 //In case file hash was different
                 //or if this is a newer psarc with the same song ids
                 //Remove all existing entries
-                cache.Remove(psarcFile, allSongDetails.Keys.ToList());
+                _cache.Remove(psarcFile, allSongDetails.Keys.ToList());
 
                 //Add this CDLC file to the cache
-                cache.Add(psarcFile, allSongDetails);
+                _cache.Add(psarcFile, allSongDetails);
             }
 
             PsarcFileProcessingDone(psarcFile, true);
