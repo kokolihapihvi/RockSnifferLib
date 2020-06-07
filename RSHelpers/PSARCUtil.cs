@@ -154,12 +154,39 @@ namespace RockSnifferLib.RSHelpers
                             sectionCounts[sect.Name]++;
                         }
 
+
+                        //Get a list of all phraseIterations
+                        var phraseIterations = new List<ArrangementDetails.PhraseIterationDetails>();
+                        Dictionary<string, int> phraseIterationCounts = new Dictionary<string, int>();
+
+                        foreach (var phrI in attr.PhraseIterations)
+                        {
+                            if (!phraseIterationCounts.ContainsKey(phrI.Name))
+                            {
+                                phraseIterationCounts[phrI.Name] = 1;
+                            }
+
+                            var phraseIterationDetails = new ArrangementDetails.PhraseIterationDetails
+                            {
+                                name = $"{phrI.Name} {phraseIterationCounts[phrI.Name]}",
+                                phraseId = phrI.PhraseIndex,
+                                maxDifficulty = phrI.MaxDifficulty,
+                                startTime = phrI.StartTime,
+                                endTime = phrI.EndTime
+                            };
+
+                            phraseIterations.Add(phraseIterationDetails);
+
+                            phraseIterationCounts[phrI.Name]++;
+                        }
+
                         //Build arrangement details
                         var arrangementDetails = new ArrangementDetails
                         {
                             name = attr.ArrangementName,
                             arrangementID = arrangement_id,
                             sections = sections,
+                            phraseIterations = phraseIterations,
                             data = arrangementData,
                             isBonusArrangement = (attr.ArrangementProperties.BonusArr == 1),
                             isAlternateArrangement = (attr.ArrangementProperties.Represent == 0)
@@ -180,7 +207,8 @@ namespace RockSnifferLib.RSHelpers
                         }
 
                         arrangementDetails.tuning = new ArrangementTuning(attr.Tuning, (int)attr.CentOffset, (int)attr.CapoFret);
-
+                        
+                        
                         //file hash
                         details.psarcFileHash = fileHash;
 

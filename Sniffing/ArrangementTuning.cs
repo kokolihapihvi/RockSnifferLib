@@ -17,19 +17,42 @@ namespace RockSnifferLib.Sniffing
             ["C# Standard"] = new ArrangementTuning(-3, -3, -3, -3, -3, -3, -999, -999),
             ["C Standard"] = new ArrangementTuning(-4, -4, -4, -4, -4, -4, -999, -999),
             ["B Standard"] = new ArrangementTuning(-5, -5, -5, -5, -5, -5, -999, -999),
+            ["Bb Standard"] = new ArrangementTuning(-6, -6, -6, -6, -6, -6, -999, -999),
+            ["F Standard"] = new ArrangementTuning(-7, -7, -7, -7, -7, -7, -999, -999),
+            ["F Standard"] = new ArrangementTuning(1, 1, 1, 1, 0, 0, -999, -999),
+            ["Eb Standard"] = new ArrangementTuning(-1, -1, -1, -1, 0, 0, -999, -999),
+            ["D Standard"] = new ArrangementTuning(-2, -2, -2, -2, 0, 0, -999, -999),
+            ["C# Standard"] = new ArrangementTuning(-3, -3, -3, -3, 0, 0, -999, -999),
+            ["C Standard"] = new ArrangementTuning(-4, -4, -4, -4, 0, 0, -999, -999),
+            ["B Standard"] = new ArrangementTuning(-5, -5, -5, -5, 0, 0, -999, -999),
+            ["Bb Standard"] = new ArrangementTuning(-6, -6, -6, -6, 0, 0, -999, -999),
+            ["F Standard"] = new ArrangementTuning(-7, -7, -7, -7, 0, 0, -999, -999),
 
             ["Drop D"] = new ArrangementTuning(-2, 0, 0, 0, 0, 0, -999, -999),
             ["Eb Drop Db"] = new ArrangementTuning(-3, -1, -1, -1, -1, -1, -999, -999),
             ["D Drop C"] = new ArrangementTuning(-4, -2, -2, -2, -2, -2, -999, -999),
             ["C# Drop B"] = new ArrangementTuning(-5, -3, -3, -3, -3, -3, -999, -999),
+            ["C Drop Bb"] = new ArrangementTuning(-6, -4, -4, -4, -4, -4, -999, -999),
             ["B Drop A"] = new ArrangementTuning(-7, -5, -5, -5, -5, -5, -999, -999),
+            ["Bb Drop Ab"] = new ArrangementTuning(-8, -6, -6, -6, -6, -6, -999, -999),
+            ["F Drop G"] = new ArrangementTuning(-9, -7, -7, -7, -7, -7, -999, -999),
+            ["Eb Drop Db"] = new ArrangementTuning(-3, -1, -1, -1, 0, 0, -999, -999),
+            ["D Drop C"] = new ArrangementTuning(-4, -2, -2, -2, 0, 0, -999, -999),
+            ["C# Drop B"] = new ArrangementTuning(-5, -3, -3, -3, 0, 0, -999, -999),
+            ["C Drop Bb"] = new ArrangementTuning(-6, -4, -4, -4, 0, 0, -999, -999),
+            ["B Drop A"] = new ArrangementTuning(-7, -5, -5, -5, 0, 0, -999, -999),
+            ["Bb Drop Ab"] = new ArrangementTuning(-8, -6, -6, -6, 0, 0, -999, -999),
+            ["F Drop G"] = new ArrangementTuning(-9, -7, -7, -7, 0, 0, -999, -999),
 
             ["Open E"] = new ArrangementTuning(0, 2, 2, 1, 0, 0, -999, -999),
             ["Open A"] = new ArrangementTuning(0, 0, 2, 2, 2, 0, -999, -999),
             ["Open D"] = new ArrangementTuning(-2, 0, 0, -1, -2, -2, -999, -999),
             ["Open G"] = new ArrangementTuning(-2, -2, 0, 0, 0, -2, -999, -999),
+            ["Open A"] = new ArrangementTuning(0, 0, 2, 2, 0, 0, -999, -999),
+            ["Open D"] = new ArrangementTuning(-2, 0, 0, -1, 0, 0, -999, -999),
+            ["Open G"] = new ArrangementTuning(-2, -2, 0, 0, 0, 0, -999, -999),
 
-            ["DADGAD"] = new ArrangementTuning(-2, 0, 0, 0, -2, -2, -999, -999),
+            ["DADGAD"] = new ArrangementTuning(-2, 0, 0, 0, -2, -2, -999, -999)
         };
 
         public string TuningName
