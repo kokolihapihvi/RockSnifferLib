@@ -51,7 +51,6 @@ namespace RockSnifferLib.Sniffing
             ["Open A"] = new ArrangementTuning(0, 0, 2, 2, 0, 0, -999, -999),
             ["Open D"] = new ArrangementTuning(-2, 0, 0, -1, 0, 0, -999, -999),
             ["Open G"] = new ArrangementTuning(-2, -2, 0, 0, 0, 0, -999, -999),
-
             ["DADGAD"] = new ArrangementTuning(-2, 0, 0, 0, -2, -2, -999, -999)
         };
 
