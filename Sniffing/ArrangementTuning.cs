@@ -10,6 +10,7 @@ namespace RockSnifferLib.Sniffing
     {
         private static readonly Dictionary<string, ArrangementTuning> _TuningNames = new Dictionary<string, ArrangementTuning>()
         {
+            ["E Standard"] = new ArrangementTuning(12, 12, 12, 12, 12, 12, -999, -999),
             ["Eb Standard"] = new ArrangementTuning(11, 11, 11, 11, 11, 11, -999, -999),
             ["D Standard"] = new ArrangementTuning(10, 10, 10, 10, 10, 10, -999, -999),
             ["C# Standard"] = new ArrangementTuning(9, 9, 9, 9, 9, 9, -999, -999),
@@ -33,7 +34,9 @@ namespace RockSnifferLib.Sniffing
             ["G Standard"] = new ArrangementTuning(-9, -9, -9, -9, -9, -9, -999, -999),
             ["F# Standard"] = new ArrangementTuning(-10, -10, -10, -10, -10, -10, -999, -999),
             ["F Standard"] = new ArrangementTuning(-11, -11, -11, -11, -11, -11, -999, -999),
+            ["E Standard"] = new ArrangementTuning(-12, -12, -12, -12, -12, -12, -999, -999),
 
+            ["E Standard"] = new ArrangementTuning(12, 12, 12, 12, 0, 0, -999, -999),
             ["Eb Standard"] = new ArrangementTuning(11, 11, 11, 11, 0, 0, -999, -999),
             ["D Standard"] = new ArrangementTuning(10, 10, 10, 10, 0, 0, -999, -999),
             ["C# Standard"] = new ArrangementTuning(9, 9, 9, 9, 0, 0, -999, -999),
@@ -56,7 +59,9 @@ namespace RockSnifferLib.Sniffing
             ["G Standard"] = new ArrangementTuning(-9, -9, -9, -9, 0, 0, -999, -999),
             ["F# Standard"] = new ArrangementTuning(-10, -10, -10, -10, 0, 0, -999, -999),
             ["F Standard"] = new ArrangementTuning(-11, -11, -11, -11, 0, 0, -999, -999),
+            ["E Standard"] = new ArrangementTuning(-12, -12, -12, -12, 0, 0, -999, -999),
 
+            ["F# Drop E"] = new ArrangementTuning(12, 14, 14, 14, 14, 14, -999, -999),
             ["F Drop Eb"] = new ArrangementTuning(11, 13, 13, 13, 13, 13, -999, -999),
             ["Drop D"] = new ArrangementTuning(10, 12, 12, 12, 12, 12, -999, -999),
             ["Eb Drop Db"] = new ArrangementTuning(9, 11, 11, 11, 11, 11, -999, -999),
@@ -82,7 +87,9 @@ namespace RockSnifferLib.Sniffing
             ["G Drop F"] = new ArrangementTuning(-11, -9, -9, -9, -9, -9, -999, -999),
             ["F# Drop E"] = new ArrangementTuning(-12, -10, -10, -10, -10, -10, -999, -999),
             ["F Drop Eb"] = new ArrangementTuning(-13, -11, -11, -11, -11, -11, -999, -999),
+            ["Drop D"] = new ArrangementTuning(-14, -12, -12, -12, -12, -12, -999, -999),
 
+            ["F# Drop E"] = new ArrangementTuning(12, 14, 14, 14, 0, 0, -999, -999),
             ["F Drop Eb"] = new ArrangementTuning(11, 13, 13, 13, 0, 0, -999, -999),
             ["Drop D"] = new ArrangementTuning(10, 12, 12, 12, 0, 0, -999, -999),
             ["Eb Drop Db"] = new ArrangementTuning(9, 11, 11, 11, 0, 0, -999, -999),
@@ -108,6 +115,7 @@ namespace RockSnifferLib.Sniffing
             ["G Drop F"] = new ArrangementTuning(-11, -9, -9, -9, 0, 0, -999, -999),
             ["F# Drop E"] = new ArrangementTuning(-12, -10, -10, -10, 0, 0, -999, -999),
             ["F Drop Eb"] = new ArrangementTuning(-13, -11, -11, -11, 0, 0, -999, -999),
+            ["Drop D"] = new ArrangementTuning(-14, -12, -12, -12, 0, 0, -999, -999),
 
             ["Open A"] = new ArrangementTuning(0, 0, 2, 2, 2, 0, -999, -999),
             ["Open B"] = new ArrangementTuning(-5, -3, -3, -1, 0, -1, -999, -999),
@@ -206,7 +214,6 @@ namespace RockSnifferLib.Sniffing
         /// <summary>
         /// Check if two tunings are equal, capo fret and cents offset are ignored
         /// </summary>
-        /// <param name="obj"></param>
         /// <returns></returns>
         public override bool Equals(object obj)
         {
