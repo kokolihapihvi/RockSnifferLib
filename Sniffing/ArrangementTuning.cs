@@ -134,7 +134,6 @@ namespace RockSnifferLib.Sniffing
             ["Double Drop D"] = new ArrangementTuning(-2, 0, 0, 0, 0, -2, -999, -999),
             ["Nick Drake"] = new ArrangementTuning(-4, -2, -2, -2, 1, 0, -999, -999),
             ["C6 Modal"] = new ArrangementTuning(-4, 0, -2, 0, 1, 0, -999, -999),
-            ["Nashville"] = new ArrangementTuning(12, 12, 12, 12, 0, 0, -999, -999),
         };
 
         public string TuningName
