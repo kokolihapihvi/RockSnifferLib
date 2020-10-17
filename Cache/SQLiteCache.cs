@@ -70,6 +70,22 @@ namespace RockSnifferLib.Cache
                 cmd.ExecuteNonQuery();
             }
 
+            // Enable WAL mode, it is MUCH faster
+            // It shouldn't have any downsides in this case
+            q = "PRAGMA journal_mode = WAL";
+            using (var cmd = Connection.CreateCommand())
+            {
+                cmd.CommandText = q;
+                cmd.ExecuteNonQuery();
+            }
+
+            q = "PRAGMA synchronous = NORMAL";
+            using (var cmd = Connection.CreateCommand())
+            {
+                cmd.CommandText = q;
+                cmd.ExecuteNonQuery();
+            }
+
             if (Logger.logCache)
             {
                 Logger.Log("SQLite database initialised");
