@@ -1,4 +1,5 @@
-﻿using RocksmithToolkitLib.Sng2014HSL;
+﻿using Rocksmith2014PsarcLib.Psarc.Asset;
+using Rocksmith2014PsarcLib.Psarc.Models.Sng;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,17 +26,17 @@ namespace RockSnifferLib.RSHelpers
 
         public ArrangementData() { }
 
-        public ArrangementData(Sng2014File sng)
+        public ArrangementData(SngAsset sng)
         {
             Measures = new List<Measure>();
 
-            if (sng.BPMs.Count > 0)
+            if (sng.BPMs.Length > 0)
             {
-                Measures.Add(new Measure(sng.BPMs.BPMs[0]));
+                Measures.Add(new Measure(sng.BPMs[0]));
 
-                for (int i = 0; i < sng.BPMs.BPMs.Length; ++i)
+                for (int i = 0; i < sng.BPMs.Length; ++i)
                 {
-                    var bpm = sng.BPMs.BPMs[i];
+                    var bpm = sng.BPMs[i];
 
                     if (bpm.Measure != Measures.Last().Number)
                     {

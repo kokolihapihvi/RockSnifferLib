@@ -1,4 +1,6 @@
-﻿using RocksmithToolkitLib.DLCPackage.Manifest2014;
+﻿using Rocksmith2014PsarcLib.Psarc;
+using Rocksmith2014PsarcLib.Psarc.Asset;
+using Rocksmith2014PsarcLib.Psarc.Models.Json;
 using RockSnifferLib.Logging;
 using RockSnifferLib.Sniffing;
 using System;
@@ -74,15 +76,16 @@ namespace RockSnifferLib.RSHelpers
 
             var detailsDict = new Dictionary<string, SongDetails>();
 
-            using (LazyPsarcLoader loader = new LazyPsarcLoader(fileInfo))
+            using (PsarcFile loader = new PsarcFile(fileInfo))
             {
                 //Extract toolkit info
                 var tkInfo = loader.ExtractToolkitInfo();
-                List<Manifest2014<Attributes2014>> manifests = null;
+
+                List<SongArrangement> manifests;
 
                 try
                 {
-                    manifests = loader.ExtractJsonManifests();
+                    manifests = loader.ExtractArrangementManifests();
                 }
                 catch (Exception e)
                 {
@@ -99,30 +102,30 @@ namespace RockSnifferLib.RSHelpers
                         continue;
                     }
 
-                    var arrangement = v.Entries.First();
-                    var arrangement_id = arrangement.Key;
-                    var attr = arrangement.Value.First().Value;
+                    var arrangement = v.Attributes;
+                    var arrangement_id = arrangement.PersistentID;
 
-                    ArrangementData arrangementData = loader.ExtractArrangementData(attr);
+                    var arrangementSng = loader.InflateEntry<SngAsset>(a => a.Path.Equals($"songs/bin/generic/{arrangement.SongXml.Substring(20)}.sng"));
+                    ArrangementData arrangementData = new ArrangementData(arrangementSng);
 
-                    if (attr.Phrases != null)
+                    if (arrangement.Phrases != null)
                     {
-                        if (!detailsDict.ContainsKey(attr.SongKey))
+                        if (!detailsDict.ContainsKey(arrangement.SongKey))
                         {
-                            detailsDict[attr.SongKey] = new SongDetails();
+                            detailsDict[arrangement.SongKey] = new SongDetails();
                         }
 
-                        SongDetails details = detailsDict[attr.SongKey];
+                        SongDetails details = detailsDict[arrangement.SongKey];
 
                         if (details.albumArt == null)
                         {
                             try
                             {
-                                details.albumArt = loader.ExtractAlbumArt(attr);
+                                details.albumArt = loader.ExtractAlbumArt(arrangement).Bitmap;
                             }
                             catch (Exception e)
                             {
-                                Logger.LogError("Warning: couldn't extract album art for {0}", attr.SongName);
+                                Logger.LogError("Warning: couldn't extract album art for {0}", arrangement.SongName);
 #if DEBUG
                                 Logger.LogException(e);
 #endif
@@ -135,7 +138,7 @@ namespace RockSnifferLib.RSHelpers
                         var sections = new List<ArrangementDetails.SectionDetails>();
                         Dictionary<string, int> sectionCounts = new Dictionary<string, int>();
 
-                        foreach (var sect in attr.Sections)
+                        foreach (var sect in arrangement.Sections)
                         {
                             if (!sectionCounts.ContainsKey(sect.Name))
                             {
@@ -159,7 +162,7 @@ namespace RockSnifferLib.RSHelpers
                         var phraseIterations = new List<ArrangementDetails.PhraseIterationDetails>();
                         Dictionary<string, int> phraseIterationCounts = new Dictionary<string, int>();
 
-                        foreach (var phrI in attr.PhraseIterations)
+                        foreach (var phrI in arrangement.PhraseIterations)
                         {
                             if (!phraseIterationCounts.ContainsKey(phrI.Name))
                             {
@@ -183,42 +186,42 @@ namespace RockSnifferLib.RSHelpers
                         //Build arrangement details
                         var arrangementDetails = new ArrangementDetails
                         {
-                            name = attr.ArrangementName,
+                            name = arrangement.ArrangementName,
                             arrangementID = arrangement_id,
                             sections = sections,
                             phraseIterations = phraseIterations,
                             data = arrangementData,
-                            isBonusArrangement = (attr.ArrangementProperties.BonusArr == 1),
-                            isAlternateArrangement = (attr.ArrangementProperties.Represent == 0)
+                            isBonusArrangement = (arrangement.ArrangementProperties.BonusArr == 1),
+                            isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0)
                         };
 
                         //Determine path type
-                        if (attr.ArrangementProperties.PathLead == 1)
+                        if (arrangement.ArrangementProperties.PathLead == 1)
                         {
                             arrangementDetails.type = "Lead";
                         }
-                        else if (attr.ArrangementProperties.PathRhythm == 1)
+                        else if (arrangement.ArrangementProperties.PathRhythm == 1)
                         {
                             arrangementDetails.type = "Rhythm";
                         }
-                        else if (attr.ArrangementProperties.PathBass == 1)
+                        else if (arrangement.ArrangementProperties.PathBass == 1)
                         {
                             arrangementDetails.type = "Bass";
                         }
 
-                        arrangementDetails.tuning = new ArrangementTuning(attr.Tuning, (int)attr.CentOffset, (int)attr.CapoFret);
-                        
-                        
+                        arrangementDetails.tuning = new ArrangementTuning(arrangement.Tuning, (int)arrangement.CentOffset, (int)arrangement.CapoFret);
+
+
                         //file hash
                         details.psarcFileHash = fileHash;
 
                         //Get general song information
-                        details.songID = attr.SongKey;
-                        details.songLength = (float)(attr.SongLength ?? 0);
-                        details.songName = attr.SongName;
-                        details.artistName = attr.ArtistName;
-                        details.albumName = attr.AlbumName;
-                        details.albumYear = attr.SongYear ?? 0;
+                        details.songID = arrangement.SongKey;
+                        details.songLength = arrangement.SongLength;
+                        details.songName = arrangement.SongName;
+                        details.artistName = arrangement.ArtistName;
+                        details.albumName = arrangement.AlbumName;
+                        details.albumYear = arrangement.SongYear;
                         details.arrangements.Add(arrangementDetails);
 
                         //Apply toolkit information
@@ -246,10 +249,15 @@ namespace RockSnifferLib.RSHelpers
             WaitForFile(fileInfo);
 
             //Calculate file hash
-            using (var stream = fileInfo.OpenRead())
+            using (var md5 = MD5.Create())
             {
-                return Convert.ToBase64String(MD5.Create().ComputeHash(stream));
+                using (var stream = fileInfo.OpenRead())
+                {
+                    var hash = Convert.ToBase64String(md5.ComputeHash(stream));
+                    return hash;
+                }
             }
+
         }
     }
 }

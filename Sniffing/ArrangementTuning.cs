@@ -1,4 +1,4 @@
-﻿using RocksmithToolkitLib.XML;
+﻿using Rocksmith2014PsarcLib.Psarc.Models.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -190,7 +190,7 @@ namespace RockSnifferLib.Sniffing
             CapoFret = capoFret;
         }
 
-        public ArrangementTuning(TuningStrings tuning, int centsOffset, int capoFret)
+        public ArrangementTuning(SongArrangement.ArrangementAttributes.ArrangementTuning tuning, int centsOffset, int capoFret)
         {
             String0 = tuning.String0;
             String1 = tuning.String1;

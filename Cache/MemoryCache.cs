@@ -20,7 +20,7 @@ namespace RockSnifferLib.Cache
 
         public void Remove(string filepath, List<string> songIDs)
         {
-            throw new System.NotImplementedException();
+            Cache.Remove(filepath);
         }
 
         public bool Contains(string filepath, string fileHash)

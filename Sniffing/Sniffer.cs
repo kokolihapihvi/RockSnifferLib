@@ -246,7 +246,7 @@ namespace RockSnifferLib.Sniffing
             {
                 IncludeSubdirectories = true,
 
-                NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName,
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName,
 
                 //Increase buffer size to 64k to avoid losing files
                 InternalBufferSize = 1024 * 64
@@ -283,6 +283,7 @@ namespace RockSnifferLib.Sniffing
         private static List<string> processingQueue = new List<string>();
         private void PsarcFileChanged(object sender, FileSystemEventArgs e)
         {
+            Logger.Log("FileSystemWatcher: {0} {1}", e.ChangeType, e.Name);
             var psarcFile = e.FullPath;
 
             //Avoid duplicates in the block
@@ -291,7 +292,13 @@ namespace RockSnifferLib.Sniffing
             processingQueue.Add(psarcFile);
 
             //Add to block to process the psarc file
-            psarcFileBlock.Post(psarcFile);
+            bool posted = psarcFileBlock.Post(psarcFile);
+
+            //If post was not successful
+            if (!posted)
+                Logger.LogError("Unable to post {0} to psarcFileBlock", psarcFile);
+
+            Logger.Log("Queue:{0} / Block:{1}", processingQueue.Count, psarcFileBlock.InputCount);
         }
 
         private void PsarcFileProcessingDone(string psarcFile, bool success)
@@ -305,6 +312,8 @@ namespace RockSnifferLib.Sniffing
                 //Remove from queue
                 processingQueue.Remove(psarcFile);
             }
+
+            Logger.Log("Queue:{0} / Block:{1}", processingQueue.Count, psarcFileBlock.InputCount);
         }
 
         private void ProcessPsarcFile(string psarcFile)
@@ -356,7 +365,7 @@ namespace RockSnifferLib.Sniffing
             };
 
             //Go into the dlc folder
-            path = path + $"{Path.DirectorySeparatorChar}dlc";
+            path += $"{Path.DirectorySeparatorChar}dlc";
 
             GetAllPsarcFiles(path, psarcFiles);
 
