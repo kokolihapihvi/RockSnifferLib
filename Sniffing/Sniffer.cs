@@ -320,8 +320,22 @@ namespace RockSnifferLib.Sniffing
         {
             var fileInfo = new FileInfo(psarcFile);
 
+            // Try to hash the psarc file
+            string hash;
+            try
+            {
+                hash = PSARCUtil.GetFileHash(fileInfo);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Unable to calculate hash for {0}", psarcFile);
+                Logger.LogException(e);
+                PsarcFileProcessingDone(psarcFile, false);
+                return;
+            }
+
             //Return if file is already cached
-            if (_cache.Contains(psarcFile, PSARCUtil.GetFileHash(fileInfo)))
+            if (_cache.Contains(psarcFile, hash))
             {
                 PsarcFileProcessingDone(psarcFile, false);
                 return;
