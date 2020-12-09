@@ -298,7 +298,10 @@ namespace RockSnifferLib.Sniffing
             if (!posted)
                 Logger.LogError("Unable to post {0} to psarcFileBlock", psarcFile);
 
-            Logger.Log("Queue:{0} / Block:{1}", processingQueue.Count, psarcFileBlock.InputCount);
+            if (Logger.logProcessingQueue)
+            {
+                Logger.Log("Queue:{0} / Block:{1}", processingQueue.Count, psarcFileBlock.InputCount);
+            }
         }
 
         private void PsarcFileProcessingDone(string psarcFile, bool success)
@@ -313,7 +316,10 @@ namespace RockSnifferLib.Sniffing
                 processingQueue.Remove(psarcFile);
             }
 
-            Logger.Log("Queue:{0} / Block:{1}", processingQueue.Count, psarcFileBlock.InputCount);
+            if (Logger.logProcessingQueue)
+            {
+                Logger.Log("Queue:{0} / Block:{1}", processingQueue.Count, psarcFileBlock.InputCount);
+            }
         }
 
         private void ProcessPsarcFile(string psarcFile)

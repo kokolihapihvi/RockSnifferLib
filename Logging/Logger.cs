@@ -40,6 +40,11 @@ namespace RockSnifferLib.Logging
         public static bool logStateMachine;
 
         /// <summary>
+        /// Log psarc file processing queue status
+        /// </summary>
+        public static bool logProcessingQueue;
+
+        /// <summary>
         /// Logs an error into the console, in red text
         /// </summary>
         /// <param name="pattern"></param>
