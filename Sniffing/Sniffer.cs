@@ -259,7 +259,9 @@ namespace RockSnifferLib.Sniffing
 
             watcher.EnableRaisingEvents = true;
 
-            int parallelism = Math.Max(1, Environment.ProcessorCount);
+            // Clamp to max 8 parallelism, because going higher is pretty ridiculous
+            // Going higher is still possible manually through the config
+            int parallelism = Math.Min(8, Math.Max(1, Environment.ProcessorCount));
 
             //Use parallelism value from settings
             if (_settings.parallelism > 0) parallelism = _settings.parallelism;
