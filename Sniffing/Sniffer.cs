@@ -87,9 +87,9 @@ namespace RockSnifferLib.Sniffing
         private bool running = true;
 
         /// <summary>
-        /// FileSystemWatcher to watch the dlc folder
+        /// FileSystemWatchers to watch the dlc folder (and any symlinks)
         /// </summary>
-        private FileSystemWatcher watcher;
+        private List<FileSystemWatcher> fileSystemWatchers = new List<FileSystemWatcher>();
 
         /// <summary>
         /// An ActionBlock for processing psarc files
@@ -237,12 +237,9 @@ namespace RockSnifferLib.Sniffing
             }
         }
 
-        private async void DoSniffing()
+        private void CreateFileSystemWatcher(string path, string filter)
         {
-            //Get path to rs directory
-            var path = Path.GetDirectoryName(_rsProcess.MainModule.FileName);
-
-            watcher = new FileSystemWatcher(path + Path.DirectorySeparatorChar + "dlc", "*.psarc")
+            var watcher = new FileSystemWatcher(path, filter)
             {
                 IncludeSubdirectories = true,
 
@@ -258,6 +255,43 @@ namespace RockSnifferLib.Sniffing
             watcher.Error += Watcher_Error;
 
             watcher.EnableRaisingEvents = true;
+
+            fileSystemWatchers.Add(watcher);
+
+            Logger.Log("Created FileSystemWatcher for {0}", path);
+        }
+
+        private void FindSymLinks(string path, List<string> symlinks)
+        {
+            // Get all directories
+            var dirs = Directory.GetDirectories(path, "*", SearchOption.AllDirectories);
+
+            // Go through all found directories
+            foreach(var dir in dirs)
+            {
+                // Check if path has the reparsepoint attribute (it is most likely a symlink)
+                if(new FileInfo(dir).Attributes.HasFlag(FileAttributes.ReparsePoint))
+                {
+                    Logger.Log($"Found symlink at {dir}");
+                    symlinks.Add(dir);
+                }
+            }
+        }
+
+        private async void DoSniffing()
+        {
+            // Get path to rs directory
+            var path = Path.GetDirectoryName(_rsProcess.MainModule.FileName);
+
+            // Create main watcher for the dlc folder
+            CreateFileSystemWatcher(path + Path.DirectorySeparatorChar + "dlc", "*.psarc");
+
+            // Find all symbolic links and create a watcher for each
+            var symlinks = new List<string>();
+            FindSymLinks(path + Path.DirectorySeparatorChar + "dlc", symlinks);
+
+            // Create a watcher for each symlink
+            foreach (var symlink in symlinks) CreateFileSystemWatcher(symlink, "*.psarc");
 
             // Clamp to max 8 parallelism, because going higher is pretty ridiculous
             // Going higher is still possible manually through the config
@@ -285,7 +319,8 @@ namespace RockSnifferLib.Sniffing
         private static List<string> processingQueue = new List<string>();
         private void PsarcFileChanged(object sender, FileSystemEventArgs e)
         {
-            Logger.Log("FileSystemWatcher: {0} {1}", e.ChangeType, e.Name);
+            if (Logger.logProcessingQueue) Logger.Log("FileSystemWatcher: {0} \"{1}\"", e.ChangeType, e.Name);
+
             var psarcFile = e.FullPath;
 
             //Avoid duplicates in the block
@@ -297,13 +332,10 @@ namespace RockSnifferLib.Sniffing
             bool posted = psarcFileBlock.Post(psarcFile);
 
             //If post was not successful
-            if (!posted)
-                Logger.LogError("Unable to post {0} to psarcFileBlock", psarcFile);
+            if (!posted) Logger.LogError("Unable to post {0} to psarcFileBlock", psarcFile);
 
-            if (Logger.logProcessingQueue)
-            {
-                Logger.Log("Queue:{0} / Block:{1}", processingQueue.Count, psarcFileBlock.InputCount);
-            }
+            if (Logger.logProcessingQueue) Logger.Log("Queue:{0} / Block:{1}", processingQueue.Count, psarcFileBlock.InputCount);
+
         }
 
         private void PsarcFileProcessingDone(string psarcFile, bool success)
@@ -412,7 +444,12 @@ namespace RockSnifferLib.Sniffing
         {
             running = false;
 
-            watcher.Dispose();
+            foreach (var watcher in fileSystemWatchers)
+            {
+                watcher.Dispose();
+            }
+
+            fileSystemWatchers.Clear();
         }
 
         /// <summary>
