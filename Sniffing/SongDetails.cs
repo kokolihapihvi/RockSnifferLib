@@ -10,6 +10,14 @@ namespace RockSnifferLib.Sniffing
     [Serializable]
     public class SongDetails
     {
+        public class VocalDetails
+        {
+            public float Time;
+            public int Note;
+            public float Length;
+            public string Lyric;
+        };
+
         public string songID;
         public string songName;
         public string artistName;
@@ -28,6 +36,8 @@ namespace RockSnifferLib.Sniffing
         public Image albumArt;
 
         public string psarcFileHash;
+
+        public List<VocalDetails> vocals = new List<VocalDetails>();
 
         public void Print()
         {

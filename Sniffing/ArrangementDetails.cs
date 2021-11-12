@@ -13,7 +13,7 @@ namespace RockSnifferLib.Sniffing
             public float startTime;
             public float endTime;
         };
-
+ 
         public class PhraseIterationDetails
         {
             public string name;
