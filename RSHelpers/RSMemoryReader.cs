@@ -50,10 +50,10 @@ namespace RockSnifferLib.RSHelpers
             //If there was string in memory
             if (preview_name != null)
             {
-                //Verify Play_ prefix and _Preview suffix
-                if (preview_name.StartsWith("Play_") && preview_name.EndsWith("_Preview"))
+                //Verify Play_ prefix and _Preview or _Invalid suffix
+                if (preview_name.StartsWith("Play_") && (preview_name.EndsWith("_Preview") || preview_name.EndsWith("_Invalid")))
                 {
-                    //Remove Play_ prefix and _Preview suffix
+                    //Remove Play_ prefix and _Preview or _Invalid suffix
                     string song_id = preview_name.Substring(5, preview_name.Length - 13);
 
                     //Assign to readout
