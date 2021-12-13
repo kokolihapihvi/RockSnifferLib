@@ -43,6 +43,7 @@ namespace RockSnifferLib.RSHelpers
                     using (FileStream stream = fileInfo.OpenRead())
                     {
                         stream.Close();
+                        break; // break when file was successfully opened
                     }
                 }
                 catch
