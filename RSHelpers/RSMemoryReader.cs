@@ -51,6 +51,8 @@ namespace RockSnifferLib.RSHelpers
             if (preview_name != null)
             {
                 //Verify Play_ prefix and _Preview or _Invalid suffix
+                //_Invalid suffix is applied to all song previews when a RSMods user has the "Disable Song Preview" mod enabled.
+                //_Invalid is used to prevent the song preview from being played in-game, but in this case we want to know when that event is triggered.
                 if (preview_name.StartsWith("Play_") && (preview_name.EndsWith("_Preview") || preview_name.EndsWith("_Invalid")))
                 {
                     //Remove Play_ prefix and _Preview or _Invalid suffix
