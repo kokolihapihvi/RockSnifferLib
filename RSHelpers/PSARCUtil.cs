@@ -193,7 +193,8 @@ namespace RockSnifferLib.RSHelpers
                             phraseIterations = phraseIterations,
                             data = arrangementData,
                             isBonusArrangement = (arrangement.ArrangementProperties.BonusArr == 1),
-                            isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0)
+                            isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0),
+                            maxNotes = (int)arrangement.Score_MaxNotes
                         };
 
                         //Determine path type
