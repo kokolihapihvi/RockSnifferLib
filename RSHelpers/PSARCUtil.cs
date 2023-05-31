@@ -186,8 +186,8 @@ namespace RockSnifferLib.RSHelpers
                             phraseIterationCounts[phrI.Name]++;
                         }
 
-                        // NOTE: Rocksmith COMPLETELY ignores all notes above the 22nd fret. To get a proper "maxNotes" count we need to ignore them too.
-                        var maxNotes = 0;
+                        // NOTE: Rocksmith COMPLETELY ignores all notes above the 22nd fret. To get a proper "totalNotes" count we need to ignore them too.
+                        var totalNotes = 0;
 
                         // Due to the way note data is stored, we have to go through the song data phrase by phrase
                         foreach (var phrI in phraseIterations)
@@ -227,14 +227,14 @@ namespace RockSnifferLib.RSHelpers
                                         // If the chord does not contain any notes over the 22nd fret, it counts towards the total note count
                                         if (!chordOver22)
                                         {
-                                            maxNotes++;
+                                            totalNotes++;
                                         }
                                     }
 
                                     // Rocksmith ignores notes above the 22nd fret
                                     else if (note.FretId <= 22)
                                     {
-                                        maxNotes++;
+                                        totalNotes++;
                                     }
                                 } 
                             }
@@ -250,7 +250,7 @@ namespace RockSnifferLib.RSHelpers
                             data = arrangementData,
                             isBonusArrangement = (arrangement.ArrangementProperties.BonusArr == 1),
                             isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0),
-                            maxNotes = maxNotes
+                            totalNotes = totalNotes
                         };
 
                         //Determine path type
