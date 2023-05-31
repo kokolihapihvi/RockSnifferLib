@@ -1,5 +1,4 @@
-﻿using Org.BouncyCastle.Asn1.Cms;
-using Rocksmith2014PsarcLib.Psarc;
+﻿using Rocksmith2014PsarcLib.Psarc;
 using Rocksmith2014PsarcLib.Psarc.Asset;
 using Rocksmith2014PsarcLib.Psarc.Models.Json;
 using RockSnifferLib.Logging;
@@ -9,7 +8,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 
