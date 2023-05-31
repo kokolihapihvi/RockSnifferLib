@@ -1,4 +1,5 @@
-﻿using Rocksmith2014PsarcLib.Psarc;
+﻿using Org.BouncyCastle.Asn1.Cms;
+using Rocksmith2014PsarcLib.Psarc;
 using Rocksmith2014PsarcLib.Psarc.Asset;
 using Rocksmith2014PsarcLib.Psarc.Models.Json;
 using RockSnifferLib.Logging;
@@ -8,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 
@@ -184,6 +186,58 @@ namespace RockSnifferLib.RSHelpers
                             phraseIterationCounts[phrI.Name]++;
                         }
 
+                        // NOTE: Rocksmith COMPLETELY ignores all notes above the 22nd fret. To get a proper "maxNotes" count we need to ignore them too.
+                        var maxNotes = 0;
+                        foreach (var phrI in phraseIterations)
+                        {
+                            var startTime = phrI.startTime;
+                            var endTime = phrI.endTime;
+                            var maxDifficulty = phrI.maxDifficulty;
+
+                            var arr = arrangementSng.Arrangements[maxDifficulty];
+                                
+                            foreach(var note in arr.Notes)
+                            {
+                                if (note.Time >= startTime && note.Time < endTime)
+                                {
+                                    // We have a chord
+                                    if (note.FretId == 255)
+                                    {
+                                        var chordID = note.ChordId;
+                                        var chordFrets = arrangementSng.Chords[chordID].Frets;
+
+                                        // Check if the chord contains a note over the 22nd fret (Rocksmith ignores these)
+                                        var chordOver22 = false;
+                                        foreach (var fret in chordFrets)
+                                        {
+                                            // Value of 255 means string not used
+                                            if (fret == 255)
+                                            {
+                                                continue;
+                                            }
+
+                                            if (fret > 22)
+                                            {
+                                                chordOver22 = true;
+                                            }
+                                        }
+
+                                        if (!chordOver22)
+                                        {
+                                            maxNotes++;
+                                        }
+                                    }
+
+                                    // Rocksmith ignores notes above the 22nd fret
+                                    else if (note.FretId <= 22)
+                                    {
+                                        maxNotes++;
+                                    }
+                                } 
+                            }
+                        }
+                        // **************************************************************************************************** [end]
+
                         //Build arrangement details
                         var arrangementDetails = new ArrangementDetails
                         {
@@ -194,7 +248,7 @@ namespace RockSnifferLib.RSHelpers
                             data = arrangementData,
                             isBonusArrangement = (arrangement.ArrangementProperties.BonusArr == 1),
                             isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0),
-                            maxNotes = (int)arrangement.Score_MaxNotes
+                            maxNotes = maxNotes
                         };
 
                         //Determine path type
