@@ -188,6 +188,8 @@ namespace RockSnifferLib.RSHelpers
 
                         // NOTE: Rocksmith COMPLETELY ignores all notes above the 22nd fret. To get a proper "maxNotes" count we need to ignore them too.
                         var maxNotes = 0;
+
+                        // Due to the way note data is stored, we have to go through the song data phrase by phrase
                         foreach (var phrI in phraseIterations)
                         {
                             var startTime = phrI.startTime;
@@ -200,7 +202,7 @@ namespace RockSnifferLib.RSHelpers
                             {
                                 if (note.Time >= startTime && note.Time < endTime)
                                 {
-                                    // We have a chord
+                                    // FretId of 255 indicates a chord
                                     if (note.FretId == 255)
                                     {
                                         var chordID = note.ChordId;
@@ -222,6 +224,7 @@ namespace RockSnifferLib.RSHelpers
                                             }
                                         }
 
+                                        // If the chord does not contain any notes over the 22nd fret, it counts towards the total note count
                                         if (!chordOver22)
                                         {
                                             maxNotes++;
@@ -236,7 +239,6 @@ namespace RockSnifferLib.RSHelpers
                                 } 
                             }
                         }
-                        // **************************************************************************************************** [end]
 
                         //Build arrangement details
                         var arrangementDetails = new ArrangementDetails
