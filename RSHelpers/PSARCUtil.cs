@@ -184,68 +184,6 @@ namespace RockSnifferLib.RSHelpers
                             phraseIterationCounts[phrI.Name]++;
                         }
 
-                        // NOTE: Rocksmith COMPLETELY ignores all notes above the 22nd fret. To get a proper "totalNotes" count we need to ignore them too.
-                        var totalNotes = 0;
-
-                        // Due to the way note data is stored, we have to go through the song data phrase by phrase
-                        foreach (var phrI in phraseIterations)
-                        {
-                            var startTime = phrI.startTime;
-                            var endTime = phrI.endTime;
-                            var maxDifficulty = phrI.maxDifficulty;
-
-                            var arr = arrangementSng.Arrangements[maxDifficulty];
-
-                            foreach (var note in arr.Notes)
-                            {
-                                if (note.Time >= startTime && note.Time < endTime)
-                                {
-                                    // Skip notes explicitly marked as "ignored" (notes with the mask 0x40000 set)
-                                    // These notes do not need to be above the 22nd fret to be ignored.
-                                    var ignored = note.NoteMask & 0x40000;
-                                    if (ignored != 0)
-                                    {
-                                        continue;
-                                    }
-
-                                    // FretId of 255 indicates a chord
-                                    if (note.FretId == 255)
-                                    {
-                                        var chordID = note.ChordId;
-                                        var chordFrets = arrangementSng.Chords[chordID].Frets;
-
-                                        // Check if the chord contains a note over the 22nd fret (Rocksmith ignores these)
-                                        var chordOver22 = false;
-                                        foreach (var fret in chordFrets)
-                                        {
-                                            // Value of 255 means string not used
-                                            if (fret == 255)
-                                            {
-                                                continue;
-                                            }
-
-                                            if (fret > 22)
-                                            {
-                                                chordOver22 = true;
-                                            }
-                                        }
-
-                                        // If the chord does not contain any notes over the 22nd fret, it counts towards the total note count
-                                        if (!chordOver22)
-                                        {
-                                            totalNotes++;
-                                        }
-                                    }
-
-                                    // Rocksmith ignores notes above the 22nd fret
-                                    else if (note.FretId <= 22)
-                                    {
-                                        totalNotes++;
-                                    }
-                                }
-                            }
-                        }
-
                         //Build arrangement details
                         var arrangementDetails = new ArrangementDetails
                         {
@@ -256,7 +194,7 @@ namespace RockSnifferLib.RSHelpers
                             data = arrangementData,
                             isBonusArrangement = (arrangement.ArrangementProperties.BonusArr == 1),
                             isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0),
-                            totalNotes = totalNotes
+                            totalNotes = (int)arrangementSng.Metadata.MaxNotesAndChords_Real
                         };
 
                         //Determine path type
