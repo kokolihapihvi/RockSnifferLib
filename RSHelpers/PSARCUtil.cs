@@ -195,11 +195,19 @@ namespace RockSnifferLib.RSHelpers
                             var maxDifficulty = phrI.maxDifficulty;
 
                             var arr = arrangementSng.Arrangements[maxDifficulty];
-                                
-                            foreach(var note in arr.Notes)
+
+                            foreach (var note in arr.Notes)
                             {
                                 if (note.Time >= startTime && note.Time < endTime)
                                 {
+                                    // Skip notes explicitly marked as "ignored" (notes with the mask 0x40000 set)
+                                    // These notes do not need to be above the 22nd fret to be ignored.
+                                    var ignored = note.NoteMask & 0x40000;
+                                    if (ignored != 0)
+                                    {
+                                        continue;
+                                    }
+
                                     // FretId of 255 indicates a chord
                                     if (note.FretId == 255)
                                     {
@@ -234,7 +242,7 @@ namespace RockSnifferLib.RSHelpers
                                     {
                                         totalNotes++;
                                     }
-                                } 
+                                }
                             }
                         }
 
