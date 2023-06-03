@@ -12,8 +12,10 @@ namespace RockSnifferLib.RSHelpers
         public string songID = "";
         public string arrangementID = "";
         public string gameStage = "";
+        public bool modsActive = false;
 
         public RSMode mode = RSMode.UNKNOWN;
+
         public INoteData noteData;
 
         /// <summary>
@@ -38,6 +40,7 @@ namespace RockSnifferLib.RSHelpers
             copy.songID = songID;
             copy.arrangementID = arrangementID;
             copy.gameStage = gameStage;
+            copy.modsActive = modsActive;
 
             copy.mode = mode;
 
