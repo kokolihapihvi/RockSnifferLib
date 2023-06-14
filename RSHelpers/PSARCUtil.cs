@@ -184,6 +184,99 @@ namespace RockSnifferLib.RSHelpers
                             phraseIterationCounts[phrI.Name]++;
                         }
 
+                        // NOTE: Rocksmith COMPLETELY ignores all notes above the 22nd fret. To get a proper "totalNotes" count we need to ignore them too.
+                        var totalNotes = 0;
+
+                        // [BUG 1] It appears when a song has any note over 22 that is not marked ignored it ignores the ignore flag and just ignores the number of notes over the 22nd fret
+                        var totalNoteCount = 0;
+                        var totalNotesOver22 = 0;
+                        var over22bugged = false;
+
+                        // Due to the way note data is stored, we have to go through the song data phrase by phrase
+                        foreach (var phrI in phraseIterations)
+                        {
+                            var startTime = phrI.startTime;
+                            var endTime = phrI.endTime;
+                            var maxDifficulty = phrI.maxDifficulty;
+
+                            var arr = arrangementSng.Arrangements[maxDifficulty];
+
+                            foreach (var note in arr.Notes)
+                            {
+                                if (note.Time >= startTime && note.Time < endTime)
+                                {
+                                    // [BUG 1]
+                                    totalNoteCount++;
+
+                                    // Skip notes explicitly marked as "ignored" (notes with the mask 0x40000 set)
+                                    // These notes do not need to be above the 22nd fret to be ignored.
+                                    var ignored = note.NoteMask & 0x40000;
+                                    if (ignored != 0)
+                                    {
+                                        // [BUG 1] Count notes over the 22nd fret (an id of 255 is a chord so it doesn't count)
+                                        if (note.FretId > 22 && note.FretId != 255)
+                                        {
+                                            totalNotesOver22++;
+                                        }
+
+                                        continue;
+                                    }
+
+                                    // FretId of 255 indicates a chord
+                                    else if (note.FretId == 255)
+                                    {
+                                        var chordID = note.ChordId;
+                                        var chordFrets = arrangementSng.Chords[chordID].Frets;
+                                        var chordNotesOver22 = 0;
+
+                                        // Check if the chord contains a note over the 22nd fret (Rocksmith ignores these)
+                                        var chordOver22 = false;
+                                        foreach (var fret in chordFrets)
+                                        {
+                                            // Value of 255 means string not used
+                                            if (fret == 255)
+                                            {
+                                                continue;
+                                            }
+
+                                            if (fret > 22)
+                                            {
+                                                chordOver22 = true;
+
+                                                // [BUG 1]
+                                                totalNotesOver22++;
+                                                over22bugged = true;
+                                            }
+                                        }
+
+                                        // If the chord does not contain any notes over the 22nd fret, it counts towards the total note count
+                                        if (!chordOver22)
+                                        {
+                                            totalNotes++;
+                                        }
+                                    }
+
+                                    // Rocksmith ignores notes above the 22nd fret
+                                    else if (note.FretId <= 22)
+                                    {
+                                        totalNotes++;
+                                    }
+                                    else
+                                    {
+                                        // [BUG 1]
+                                        totalNotesOver22++;
+                                        over22bugged = true;
+                                    }
+                                }
+                            }
+
+                            // [BUG 1]
+                            if (over22bugged)
+                            {
+                                totalNotes = totalNoteCount - totalNotesOver22;
+                            }
+                        }
+
                         //Build arrangement details
                         var arrangementDetails = new ArrangementDetails
                         {
@@ -194,7 +287,7 @@ namespace RockSnifferLib.RSHelpers
                             data = arrangementData,
                             isBonusArrangement = (arrangement.ArrangementProperties.BonusArr == 1),
                             isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0),
-                            totalNotes = (int)arrangementSng.Metadata.MaxNotesAndChords_Real
+                            totalNotes = totalNotes
                         };
 
                         //Determine path type
