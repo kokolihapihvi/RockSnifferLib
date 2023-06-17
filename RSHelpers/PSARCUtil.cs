@@ -185,6 +185,7 @@ namespace RockSnifferLib.RSHelpers
                         }
 
                         // NOTE: Rocksmith COMPLETELY ignores all notes above the 22nd fret. To get a proper "totalNotes" count we need to ignore them too.
+                        // Additionally there are some other caveats to how Rocksmith tracks notes and these are handled here
                         var totalNotes = 0;
 
                         // Due to the way note data is stored, we have to go through the song data phrase by phrase
@@ -202,8 +203,14 @@ namespace RockSnifferLib.RSHelpers
                                 {
                                     // Skip notes explicitly marked as "ignored" (notes with the mask 0x40000 set)
                                     // These notes do not need to be above the 22nd fret to be ignored.
-                                    var ignored = note.NoteMask & 0x40000;
-                                    if (ignored != 0)
+                                    if ((note.NoteMask & 0x40000) != 0)
+                                    {
+                                        continue;
+                                    }
+
+                                    // Skip notes that are linked next and also form an unpitched slide (notes with the mask 0x8000000 set are linked next)
+                                    // Technically the note that is linked to is the one that is ignored but this results in the same note count
+                                    if ((note.NoteMask & 0x8000000) != 0 && note.SlideUnpitchTo != 255)
                                     {
                                         continue;
                                     }
@@ -239,21 +246,31 @@ namespace RockSnifferLib.RSHelpers
                                         if (chordNotesID != -1)
                                         {
                                             var chordNotes = arrangementSng.ChordNotes[chordNotesID];
-                                            foreach (var chordNoteSlideTo in chordNotes.SlideTo)
+                                            for (var i = 0; i < chordNotes.NoteMask.Length; i++)
                                             {
+                                                var noteMask = chordNotes.NoteMask[i];
+                                                var slideTo = chordNotes.SlideTo[i];
+                                                var slideUnpitchTo = chordNotes.SlideUnpitchTo[i];
+
                                                 // If the chord contains any notes that slide over the 22nd fret, ignore it
                                                 // Note a value of 255 indicates no slide
-                                                if (chordNoteSlideTo != 255 && chordNoteSlideTo > 22)
+                                                if (slideTo != 255 && slideTo > 22)
                                                 {
                                                     ignore = true;
                                                     break;
                                                 }
-                                            }
-                                            foreach (var chordNoteSlideUnpitchTo in chordNotes.SlideUnpitchTo)
-                                            {
+
                                                 // If the chord contains any notes that unpitched slide over the 22nd fret, ignore it
                                                 // Note a value of 255 indicates no slide
-                                                if (chordNoteSlideUnpitchTo != 255 && chordNoteSlideUnpitchTo > 22)
+                                                if (slideUnpitchTo != 255 && slideUnpitchTo > 22)
+                                                {
+                                                    ignore = true;
+                                                    break;
+                                                }
+
+                                                // If the chord is linked next and also forms an unpitched slide (notes with the mask 0x8000000 set are linked next), ignore it
+                                                // Technically the note that is linked to is the one that is ignored but this results in the same note count
+                                                if ((noteMask & 0x8000000) != 0 && slideUnpitchTo != 255)
                                                 {
                                                     ignore = true;
                                                     break;
