@@ -218,31 +218,38 @@ namespace RockSnifferLib.RSHelpers
                                     // FretId of 255 indicates a chord
                                     else if (note.FretId == 255)
                                     {
+                                        // If the chord contains any notes over the 22nd fret this does NOT mean it will be ignored
+                                        // This definitely seems like a bug in Rocksmith itself, but this seems to be the way the game works
+                                        // We do still need to track if chords contain any notes over the 22nd fret for the odd bend logic below
+                                        var chordOver22 = false;
+
                                         var chordID = note.ChordId;
                                         var chordFrets = arrangementSng.Chords[chordID].Frets;
-
-                                        // Check if the chord contains a note over the 22nd fret (Rocksmith ignores these)
-                                        var ignore = false;
                                         foreach (var fret in chordFrets)
                                         {
-                                            // Value of 255 means string not used
+                                            // A value of 255 means the string is not used
                                             if (fret == 255)
                                             {
                                                 continue;
                                             }
 
-                                            // If the chord contains any notes over the 22nd fret, ignore it
+                                            // The chord contains a note over the 22nd fret
                                             if (fret > 22)
                                             {
-                                                ignore = true;
+                                                chordOver22 = true;
                                                 break;
                                             }
                                         }
 
-                                        // Process chord slides
-                                        var chordNotesID = note.ChordNotesId;
+                                        // Chords are ignored in the following scenarios (yes I know this is a bit odd)
+                                        // - The chord contains any notes that slide over the 22nd fret
+                                        // - The chord contains any notes that unpitched slide over the 22nd fret
+                                        // - The chord is linked next and also forms an unpitched slide
+                                        // - The chord contains any note over 22 and any note that is bent (the bend does NOT have to be on the same note that is over 22)
+                                        var ignore = false;
 
                                         // If chordNotesID is -1 then the current note is not associated with a chordNotes array
+                                        var chordNotesID = note.ChordNotesId;
                                         if (chordNotesID != -1)
                                         {
                                             var chordNotes = arrangementSng.ChordNotes[chordNotesID];
@@ -271,6 +278,14 @@ namespace RockSnifferLib.RSHelpers
                                                 // If the chord is linked next and also forms an unpitched slide (notes with the mask 0x8000000 set are linked next), ignore it
                                                 // Technically the note that is linked to is the one that is ignored but this results in the same note count
                                                 if ((noteMask & 0x8000000) != 0 && slideUnpitchTo != 255)
+                                                {
+                                                    ignore = true;
+                                                    break;
+                                                }
+
+                                                // This is the odd one... if the chord contains any note over 22 and any note that is bent (notes with the mask 0x1000 set are bent), ignore it
+                                                // The bend does NOT have to be on the same note that is over 22
+                                                if ((noteMask & 0x1000) != 0 && chordOver22)
                                                 {
                                                     ignore = true;
                                                     break;
