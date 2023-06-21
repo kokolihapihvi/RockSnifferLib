@@ -188,9 +188,6 @@ namespace RockSnifferLib.RSHelpers
                         // Additionally there are some other caveats to how Rocksmith tracks notes and these are handled here
                         var totalNotes = 0;
 
-                        // Verify link-next slides are to the correct next note
-                        var linkNext = 0;
-
                         // Due to the way note data is stored, we have to go through the song data phrase by phrase
                         foreach (var phrI in phraseIterations)
                         {
@@ -204,25 +201,10 @@ namespace RockSnifferLib.RSHelpers
                             {
                                 if (note.Time >= startTime && note.Time < endTime)
                                 {
-                                    // Verify linkNext notes are to the correct fret
-                                    if (linkNext != 0 && linkNext != note.FretId)
-                                    {
-                                        totalNotes++;
-                                    }
-                                    linkNext = 0;
-
                                     // Skip notes explicitly marked as "ignored" (notes with the mask 0x40000 set)
                                     // These notes do not need to be above the 22nd fret to be ignored.
                                     if ((note.NoteMask & 0x40000) != 0)
                                     {
-                                        continue;
-                                    }
-
-                                    // Skip notes that are linked next and also form an unpitched slide (notes with the mask 0x8000000 set are linked next)
-                                    // Technically the note that is linked to is the one that is ignored but this results in the same note count
-                                    if ((note.NoteMask & 0x8000000) != 0 && note.SlideUnpitchTo != 255)
-                                    {
-                                        linkNext = note.SlideUnpitchTo;
                                         continue;
                                     }
 
@@ -272,27 +254,15 @@ namespace RockSnifferLib.RSHelpers
 
                                                 // If the chord contains any notes that slide over the 22nd fret, ignore it
                                                 // Note a value of 255 indicates no slide
-                                                if (slideTo != 255 && slideTo > 22)
+                                                if (slideTo != 255 && slideTo > 22 || slideUnpitchTo != 255 && slideUnpitchTo > 22)
                                                 {
                                                     ignore = true;
                                                     break;
                                                 }
 
-                                                // If the chord contains any notes that unpitched slide over the 22nd fret, ignore it
-                                                // Note a value of 255 indicates no slide
-                                                if (slideUnpitchTo != 255 && slideUnpitchTo > 22)
-                                                {
-                                                    ignore = true;
-                                                    break;
-                                                }
-
-                                                // If the chord is linked next and also forms an unpitched slide (notes with the mask 0x8000000 set are linked next), ignore it
-                                                // Technically the note that is linked to is the one that is ignored but this results in the same note count
-                                                if ((noteMask & 0x8000000) != 0 && slideUnpitchTo != 255)
-                                                {
-                                                    ignore = true;
-                                                    break;
-                                                }
+                                                // If the chord is linked next and also forms an unpitched slide (notes with the mask 0x8000000 set are linked next), do NOT ignore it
+                                                // Unlike single notes, this doesn't apply to chords
+                                                //if ((noteMask & 0x8000000) != 0 && slideUnpitchTo != 255) { }
 
                                                 // This is the odd one... if the chord contains any note over 22 and any note that is bent (notes with the mask 0x1000 set are bent), ignore it
                                                 // The bend does NOT have to be on the same note that is over 22
@@ -319,6 +289,14 @@ namespace RockSnifferLib.RSHelpers
                                     // Rocksmith also ignores notes below 22 that slide to a note above 22
                                     // Note a value of 255 indicates no slide
                                     else if ((note.SlideTo != 255 && note.SlideTo > 22) || (note.SlideUnpitchTo != 255 && note.SlideUnpitchTo > 22))
+                                    {
+                                        continue;
+                                    }
+
+                                    // If the note is linked next and also forms an unpitched slide (notes with the mask 0x8000000 set are linked next), ignore it
+                                    // UNLESS the note is ALSO marked as a pitched slide (happens in Knights of Cydonia for some reason...)
+                                    // Technically the NEXT note is the one that is ignored, but ignoring this note is simpler and results in the same note count
+                                    if ((note.NoteMask & 0x8000000) != 0 && note.SlideUnpitchTo != 255 && note.SlideTo == 255)
                                     {
                                         continue;
                                     }
