@@ -188,6 +188,9 @@ namespace RockSnifferLib.RSHelpers
                         // Additionally there are some other caveats to how Rocksmith tracks notes and these are handled here
                         var totalNotes = 0;
 
+                        // Verify link-next slides are to the correct next note
+                        var linkNext = 0;
+
                         // Due to the way note data is stored, we have to go through the song data phrase by phrase
                         foreach (var phrI in phraseIterations)
                         {
@@ -201,6 +204,13 @@ namespace RockSnifferLib.RSHelpers
                             {
                                 if (note.Time >= startTime && note.Time < endTime)
                                 {
+                                    // Verify linkNext notes are to the correct fret
+                                    if (linkNext != 0 && linkNext != note.FretId)
+                                    {
+                                        totalNotes++;
+                                    }
+                                    linkNext = 0;
+
                                     // Skip notes explicitly marked as "ignored" (notes with the mask 0x40000 set)
                                     // These notes do not need to be above the 22nd fret to be ignored.
                                     if ((note.NoteMask & 0x40000) != 0)
@@ -212,6 +222,7 @@ namespace RockSnifferLib.RSHelpers
                                     // Technically the note that is linked to is the one that is ignored but this results in the same note count
                                     if ((note.NoteMask & 0x8000000) != 0 && note.SlideUnpitchTo != 255)
                                     {
+                                        linkNext = note.SlideUnpitchTo;
                                         continue;
                                     }
 
