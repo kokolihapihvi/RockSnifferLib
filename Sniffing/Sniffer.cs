@@ -155,8 +155,8 @@ namespace RockSnifferLib.Sniffing
             var newState = e.newState;
             var oldState = e.oldState;
 
-            if (oldState == SnifferState.IN_MENUS &&
-                newState == SnifferState.SONG_STARTING)
+            if (oldState is SnifferState.IN_MENUS or SnifferState.SONG_SELECTED &&
+                newState is SnifferState.SONG_STARTING or SnifferState.SONG_PLAYING)
             {
                 OnSongStarted?.Invoke(this, new OnSongStartedArgs { song = currentCDLCDetails });
             }
