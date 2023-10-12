@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using System;
+using Newtonsoft.Json;
 using RockSnifferLib.Logging;
 using RockSnifferLib.Sniffing;
 using System.Collections.Generic;
@@ -21,6 +22,7 @@ namespace RockSnifferLib.Cache
                 SQLiteConnection.CreateFile("cache.sqlite");
             }
 
+            Environment.SetEnvironmentVariable("SQLite_ConfigureDirectory", ".");
             Connection = new SQLiteConnection("Data Source=cache.sqlite;");
             Connection.Open();
 
