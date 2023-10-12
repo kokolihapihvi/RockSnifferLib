@@ -315,6 +315,25 @@ namespace RockSnifferLib.RSHelpers
                             }
                         }
 
+                        // TODO: Figure out issue with phrase iterations getting the incorrect max difficulty for the bass path for Tornado of Souls by Megadeth
+                        //
+                        // For some reason there is a bug causing RockSniffer to read note data from the wrong difficulty for a couple phrase iterations in the bass path for Tornado of Souls by Megadeth.
+                        // Since this is an official chart and will not change, hardcoding the value should work now and into the future but ideally I would like to figure out what exactly is going on here.
+                        //
+                        // This happens in the following phrase iterations:
+                        //
+                        // startTime: 279.557
+                        // endTime: 284.518
+                        // maxDifficulty: 18 (should be 16 looking at the psarc file)
+                        //
+                        // startTime: 284.518
+                        // endTime: 289.422
+                        // maxDifficulty: 18 (should be 16 looking at the psarc file)
+                        if (arrangement_id == "E9BCDF0BE8B00930987945BCE61F999A")
+                        {
+                            totalNotes = 1479;
+                        }
+
                         //Build arrangement details
                         var arrangementDetails = new ArrangementDetails
                         {
