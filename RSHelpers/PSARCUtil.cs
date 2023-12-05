@@ -197,8 +197,10 @@ namespace RockSnifferLib.RSHelpers
 
                             var arr = arrangementSng.Arrangements[maxDifficulty];
 
-                            foreach (var note in arr.Notes)
+                            for (var noteIndex = 0; noteIndex < arr.Notes.Length; noteIndex++)
                             {
+                                var note = arr.Notes[noteIndex];
+
                                 if (note.Time >= startTime && note.Time < endTime)
                                 {
                                     // Skip notes explicitly marked as "ignored" (notes with the mask 0x40000 set)
@@ -238,18 +240,25 @@ namespace RockSnifferLib.RSHelpers
                                         // - The chord contains any notes that slide over the 22nd fret (including notes that slide down from over the 22nd fret)
                                         // - The chord contains any notes that unpitched slide over the 22nd fret (including notes that slide down from over the 22nd fret)
                                         // - The chord contains any note over 22 and any note that is bent (the bend does NOT have to be on the same note that is over 22)
+                                        // - Some really complex logic regarding linkNext and unpitchSlide (see [TAG1] comments below)
                                         var ignore = false;
 
                                         // If chordNotesID is -1 then the current note is not associated with a chordNotes array
                                         var chordNotesID = note.ChordNotesId;
                                         if (chordNotesID != -1)
                                         {
+                                            // [TAG1]
+                                            // Used to track ignoring of chords that are linked next AND unpitched slides
+                                            var maybeIgnore = false;
+                                            var doNotIgnore = false;
+                                            var linkedNoteOffset = 1;
+
                                             var chordNotes = arrangementSng.ChordNotes[chordNotesID];
-                                            for (var i = 0; i < chordNotes.NoteMask.Length; i++)
+                                            for (var stringIndex = 0; stringIndex < chordNotes.NoteMask.Length; stringIndex++)
                                             {
-                                                var noteMask = chordNotes.NoteMask[i];
-                                                var slideTo = chordNotes.SlideTo[i];
-                                                var slideUnpitchTo = chordNotes.SlideUnpitchTo[i];
+                                                var noteMask = chordNotes.NoteMask[stringIndex];
+                                                var slideTo = chordNotes.SlideTo[stringIndex];
+                                                var slideUnpitchTo = chordNotes.SlideUnpitchTo[stringIndex];
 
                                                 // If the chord contains any notes that slide over the 22nd fret, ignore it
                                                 // Note a value of 255 indicates no slide
@@ -266,9 +275,26 @@ namespace RockSnifferLib.RSHelpers
                                                     break;
                                                 }
 
-                                                // If the chord is linked next and also forms an unpitched slide (notes with the mask 0x8000000 set are linked next), do NOT ignore it
-                                                // Unlike single notes, this doesn't apply to chords
-                                                //if ((noteMask & 0x8000000) != 0 && slideUnpitchTo != 255) { }
+                                                // [TAG1]
+                                                // If the note is linked next and also forms an unpitched slide (notes with the mask 0x8000000 set are linked next), ignore it
+                                                // UNLESS the note is ALSO marked as a pitched slide
+                                                if ((noteMask & 0x8000000) != 0 && slideUnpitchTo != 255 && slideTo == 255)
+                                                {
+                                                    // [TAG1]
+                                                    // ADDITIONALLY all linked notes must appear on the same strings in the same order otherwise the note will note be ignored
+                                                    // Check each note in the chord and the corresponding linked next note...
+                                                    // if any one of them is not in the correct order then the chord is NOT ignored
+                                                    if (!doNotIgnore && arr.Notes[noteIndex + linkedNoteOffset].StringIndex == stringIndex)
+                                                    {
+                                                        maybeIgnore = true;
+                                                    }
+                                                    else
+                                                    {
+                                                        doNotIgnore = true;
+                                                    }
+
+                                                    linkedNoteOffset++;
+                                                }
 
                                                 // This is the odd one... if the chord contains any note over 22 and any note that is bent or vibrato
                                                 // Mask 0x1000 is bent
@@ -279,6 +305,13 @@ namespace RockSnifferLib.RSHelpers
                                                     ignore = true;
                                                     break;
                                                 }
+                                            }
+
+                                            // [TAG1]
+                                            // If we get here and maybeIgnore is true but we have not determined the chord should NOT be ignored then the chord should be ignored
+                                            if (!doNotIgnore && maybeIgnore)
+                                            {
+                                                ignore = true;
                                             }
                                         }
 
