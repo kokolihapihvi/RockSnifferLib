@@ -239,7 +239,7 @@ namespace RockSnifferLib.RSHelpers
                                         // Chords are ignored in the following scenarios (yes I know this is a bit odd)
                                         // - The chord contains any notes that slide over the 22nd fret (including notes that slide down from over the 22nd fret)
                                         // - The chord contains any notes that unpitched slide over the 22nd fret (including notes that slide down from over the 22nd fret)
-                                        // - The chord contains any note over 22 and any note that is bent (the bend does NOT have to be on the same note that is over 22)
+                                        // - The chord contains any note over 22 and any note that is tremolo, bent, or vibrato (the effected note does NOT have to be on the same note that is over 22)
                                         // - Some really complex logic regarding linkNext and unpitchSlide (see [TAG1] comments below)
                                         var ignore = false;
 
@@ -296,11 +296,12 @@ namespace RockSnifferLib.RSHelpers
                                                     linkedNoteOffset++;
                                                 }
 
-                                                // This is the odd one... if the chord contains any note over 22 and any note that is bent or vibrato
+                                                // This is the odd one... if the chord contains any note over 22 and any note that is tremolo, bent, or vibrato
+                                                // Mask 0x10 is tremolo
                                                 // Mask 0x1000 is bent
                                                 // Mask 0x10000 is vibrato
                                                 // The bend does NOT have to be on the same note that is over 22
-                                                if (((noteMask & 0x1000) != 0 || (noteMask & 0x10000) != 0) && chordOver22)
+                                                if (((noteMask & 0x10) != 0 || (noteMask & 0x1000) != 0 || (noteMask & 0x10000) != 0) && chordOver22)
                                                 {
                                                     ignore = true;
                                                     break;
