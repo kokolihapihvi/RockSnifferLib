@@ -69,6 +69,8 @@ namespace RockSnifferLib.RSHelpers
                 return null;
             }
 
+            Logger.Log("Parsing {0} ({1}mb)", fileInfo.Name, fileInfo.Length / 1024 / 1024);
+
             var sw = new Stopwatch();
             sw.Start();
 
