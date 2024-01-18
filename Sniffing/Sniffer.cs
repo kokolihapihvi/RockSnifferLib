@@ -1,4 +1,5 @@
-﻿using RockSnifferLib.Cache;
+﻿using Rocksmith2014PsarcLib.Psarc;
+using RockSnifferLib.Cache;
 using RockSnifferLib.Configuration;
 using RockSnifferLib.Events;
 using RockSnifferLib.Logging;
@@ -482,6 +483,15 @@ namespace RockSnifferLib.Sniffing
         public void Stop()
         {
             running = false;
+
+            // Reset memory redout and song details
+            currentMemoryReadout = new RSMemoryReadout();
+            currentCDLCDetails = new SongDetails();
+            
+            OnMemoryReadout?.Invoke(this, new OnMemoryReadoutArgs() { memoryReadout = currentMemoryReadout });
+            OnSongChanged?.Invoke(this, new OnSongChangedArgs() { songDetails = currentCDLCDetails });
+
+            UpdateState();
 
             foreach (var watcher in fileSystemWatchers)
             {
