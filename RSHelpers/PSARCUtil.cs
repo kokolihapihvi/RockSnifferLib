@@ -283,7 +283,7 @@ namespace RockSnifferLib.RSHelpers
                                                 if ((noteMask & 0x8000000) != 0 && slideUnpitchTo != 255 && slideTo == 255)
                                                 {
                                                     // [TAG1]
-                                                    // ADDITIONALLY all linked notes must appear on the same strings in the same order otherwise the chord will not be ignored
+                                                    // ADDITIONALLY all linked notes must appear on the same strings in the same order otherwise the note will note be ignored
                                                     // Check each note in the chord and the corresponding linked next note...
                                                     // if any one of them is not in the correct order then the chord is NOT ignored
                                                     if (!doNotIgnore && arr.Notes[noteIndex + linkedNoteOffset].StringIndex == stringIndex)
