@@ -33,6 +33,6 @@ namespace RockSnifferLib.Sniffing
         public List<SectionDetails> sections = new List<SectionDetails>();
         public List<PhraseIterationDetails> phraseIterations = new List<PhraseIterationDetails>();
         public ArrangementData data;
-        public String hash;
+        public String noteDataHash;
     }
 }
