@@ -186,6 +186,9 @@ namespace RockSnifferLib.RSHelpers
                             phraseIterationCounts[phrI.Name]++;
                         }
 
+                        // Build a hash from the note data in each arrangement
+                        var arrangementHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+
                         // NOTE: Rocksmith COMPLETELY ignores all notes above the 22nd fret. To get a proper "totalNotes" count we need to ignore them too.
                         // Additionally there are some other caveats to how Rocksmith tracks notes and these are handled here
                         var totalNotes = 0;
@@ -203,6 +206,102 @@ namespace RockSnifferLib.RSHelpers
                             {
                                 if (note.Time >= startTime && note.Time < endTime)
                                 {
+                                    // Update the arrangement hash with all note details
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.NoteMask));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.NoteFlags));
+                                    arrangementHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.Time, 3)));
+
+                                    // Ignore note.Hash because it can differ even when there is no
+                                    // discernable difference between notes
+                                    //arrangementHash.AppendData(BitConverter.GetBytes(note.Hash));
+
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.StringIndex));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.FretId));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.AnchorFretId));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.AnchorWidth));
+
+                                    // Ignore note.ChordId because it can differ even when there is
+                                    // no discernable difference between notes
+                                    //arrangementHash.AppendData(BitConverter.GetBytes(note.ChordId));
+
+                                    // Ignore note.ChordNotesId (these are processed later)
+                                    //arrangementHash.AppendData(BitConverter.GetBytes(note.ChordNotesId);
+
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.PhraseId));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.PhraseIterationId));
+
+                                    foreach (var fingerPrintId in note.FingerPrintId)
+                                    {
+                                        arrangementHash.AppendData(BitConverter.GetBytes(fingerPrintId));
+                                    }
+
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.NextIterNote));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.PrevIterNote));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.ParentPrevNote));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.SlideTo));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.SlideUnpitchTo));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.LeftHand));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.Tap));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.PickDirection));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.Slap));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.Pluck));
+                                    arrangementHash.AppendData(BitConverter.GetBytes(note.Vibrato));
+                                    arrangementHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.Sustain)));
+                                    arrangementHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.MaxBend)));
+
+                                    foreach (var bendData in note.BendData)
+                                    {
+                                        arrangementHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData.Time)));
+                                        arrangementHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData.Step)));
+                                        arrangementHash.AppendData(BitConverter.GetBytes(bendData.Step));
+                                        arrangementHash.AppendData(BitConverter.GetBytes(bendData.Unk3_0));
+                                        arrangementHash.AppendData(BitConverter.GetBytes(bendData.Unk4_0));
+                                        arrangementHash.AppendData(BitConverter.GetBytes(bendData.Unk5));
+                                    }
+
+                                    if (note.FretId == 255)
+                                    {
+                                        var chordNotesID = note.ChordNotesId;
+                                        if (chordNotesID != -1)
+                                        {
+                                            var chordNotes = arrangementSng.ChordNotes[chordNotesID];
+                                            foreach (var noteMask in chordNotes.NoteMask)
+                                            {
+                                                arrangementHash.AppendData(BitConverter.GetBytes(noteMask));
+                                            }
+
+                                            foreach (var bendData in chordNotes.BendData)
+                                            {
+                                                foreach (var bendData32 in bendData.BendData32)
+                                                {
+                                                    arrangementHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData32.Time)));
+                                                    arrangementHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData32.Step)));
+                                                    arrangementHash.AppendData(BitConverter.GetBytes(bendData32.Step));
+                                                    arrangementHash.AppendData(BitConverter.GetBytes(bendData32.Unk3_0));
+                                                    arrangementHash.AppendData(BitConverter.GetBytes(bendData32.Unk4_0));
+                                                    arrangementHash.AppendData(BitConverter.GetBytes(bendData32.Unk5));
+                                                }
+
+                                                arrangementHash.AppendData(BitConverter.GetBytes(bendData.UsedCount));
+                                            }
+
+                                            foreach (var slideTo in chordNotes.SlideTo)
+                                            {
+                                                arrangementHash.AppendData(BitConverter.GetBytes(slideTo));
+                                            }
+
+                                            foreach (var slideUnpitchTo in chordNotes.SlideUnpitchTo)
+                                            {
+                                                arrangementHash.AppendData(BitConverter.GetBytes(slideUnpitchTo));
+                                            }
+
+                                            foreach (var vibrato in chordNotes.Vibrato)
+                                            {
+                                                arrangementHash.AppendData(BitConverter.GetBytes(vibrato));
+                                            }
+                                        }
+                                    }
+
                                     // Skip notes explicitly marked as "ignored" (notes with the mask 0x40000 set)
                                     // These notes do not need to be above the 22nd fret to be ignored.
                                     if ((note.NoteMask & 0x40000) != 0)
@@ -347,8 +446,9 @@ namespace RockSnifferLib.RSHelpers
                             data = arrangementData,
                             isBonusArrangement = (arrangement.ArrangementProperties.BonusArr == 1),
                             isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0),
-                            totalNotes = totalNotes
-                        };
+                            totalNotes = totalNotes,
+                            hash = Convert.ToHexString(arrangementHash.GetHashAndReset())
+                    };
 
                         //Determine path type
                         if (arrangement.ArrangementProperties.PathLead == 1)
