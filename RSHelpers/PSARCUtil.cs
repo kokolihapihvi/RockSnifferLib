@@ -227,17 +227,27 @@ namespace RockSnifferLib.RSHelpers
                                     // Ignore note.ChordNotesId (these are processed later)
                                     //noteDataHash.AppendData(BitConverter.GetBytes(note.ChordNotesId);
 
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.PhraseId));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.PhraseIterationId));
+                                    // Ignore note.PhraseId (modified by CDLC repair)
+                                    //noteDataHash.AppendData(BitConverter.GetBytes(note.PhraseId));
 
-                                    foreach (var fingerPrintId in note.FingerPrintId)
-                                    {
-                                        noteDataHash.AppendData(BitConverter.GetBytes(fingerPrintId));
-                                    }
+                                    // Ignore note.PhraseIterationId (modified by CDLC repair)
+                                    //noteDataHash.AppendData(BitConverter.GetBytes(note.PhraseIterationId));
 
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.NextIterNote));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.PrevIterNote));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.ParentPrevNote));
+                                    // Ignore note.fingerPrintId (modified by CDLC repair)
+                                    //foreach (var fingerPrintId in note.FingerPrintId)
+                                    //{
+                                    //    noteDataHash.AppendData(BitConverter.GetBytes(fingerPrintId));
+                                    //}
+
+                                    // Ignore note.NextIterNote (modified by CDLC repair)
+                                    //noteDataHash.AppendData(BitConverter.GetBytes(note.NextIterNote));
+
+                                    // Ignore note.PrevIterNote (modified by CDLC repair)
+                                    //noteDataHash.AppendData(BitConverter.GetBytes(note.PrevIterNote));
+
+                                    // Ignore note.ParentPrevNote (maybe modified by CDLC repair, maybe ignored altogether?)
+                                    //noteDataHash.AppendData(BitConverter.GetBytes(note.ParentPrevNote));
+
                                     noteDataHash.AppendData(BitConverter.GetBytes(note.SlideTo));
                                     noteDataHash.AppendData(BitConverter.GetBytes(note.SlideUnpitchTo));
                                     noteDataHash.AppendData(BitConverter.GetBytes(note.LeftHand));
