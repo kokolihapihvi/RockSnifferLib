@@ -207,8 +207,11 @@ namespace RockSnifferLib.RSHelpers
                                 if (note.Time >= startTime && note.Time < endTime)
                                 {
                                     // Update the arrangement hash with all note details
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.NoteMask));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.NoteFlags));
+                                    // Ignore the mask of 0x80000000 (modified by CDLC repair)
+                                    noteDataHash.AppendData(BitConverter.GetBytes(note.NoteMask | 0x80000000));
+                                    
+                                    // Ignore note.Flags (modified by CDLC repair)
+                                    //noteDataHash.AppendData(BitConverter.GetBytes(note.NoteFlags));
                                     noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.Time, 3)));
 
                                     // Ignore note.Hash because it can differ even when there is no
