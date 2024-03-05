@@ -189,6 +189,23 @@ namespace RockSnifferLib.RSHelpers
                         // Build a hash from the note data in each arrangement
                         var noteDataHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 
+                        // Only record cent offset in the hash if it is greater than 50 (1/4 step)
+                        if (arrangement.CentOffset > 50)
+                        {
+                            noteDataHash.AppendData(BitConverter.GetBytes(arrangement.CentOffset));
+                        }
+
+                        // Record capo in the hash
+                        noteDataHash.AppendData(BitConverter.GetBytes(arrangement.CapoFret));
+
+                        // Record the tuning in the hash
+                        noteDataHash.AppendData(BitConverter.GetBytes(arrangement.Tuning.String0));
+                        noteDataHash.AppendData(BitConverter.GetBytes(arrangement.Tuning.String1));
+                        noteDataHash.AppendData(BitConverter.GetBytes(arrangement.Tuning.String2));
+                        noteDataHash.AppendData(BitConverter.GetBytes(arrangement.Tuning.String3));
+                        noteDataHash.AppendData(BitConverter.GetBytes(arrangement.Tuning.String4));
+                        noteDataHash.AppendData(BitConverter.GetBytes(arrangement.Tuning.String5));
+
                         // NOTE: Rocksmith COMPLETELY ignores all notes above the 22nd fret. To get a proper "totalNotes" count we need to ignore them too.
                         // Additionally there are some other caveats to how Rocksmith tracks notes and these are handled here
                         var totalNotes = 0;
@@ -206,6 +223,44 @@ namespace RockSnifferLib.RSHelpers
                             {
                                 if (note.Time >= startTime && note.Time < endTime)
                                 {
+                                    // Information about note masks
+                                    // From: https://github.com/rscustom/rocksmith-custom-song-toolkit/blob/master/RocksmithSngHSL/RocksmithSng_constants.txt
+                                    //
+                                    //NOTE_MASK_SIZE = 4 bytes
+                                    //
+                                    //NOTE_MASK_UNDEFINED = 0x00000000
+                                    //NOTE_MASK_CHORD = 0x00000002
+                                    //NOTE_MASK_OPEN = 0x00000004
+                                    //NOTE_MASK_FRETHANDMUTE = 0x00000008
+                                    //NOTE_MASK_TREMOLO = 0x00000010
+                                    //NOTE_MASK_HARMONIC = 0x00000020
+                                    //NOTE_MASK_PALMMUTE = 0x00000040
+                                    //NOTE_MASK_SLAP = 0x00000080
+                                    //NOTE_MASK_PLUCK = 0x00000100
+                                    //NOTE_MASK_HAMMERON = 0x00000200
+                                    //NOTE_MASK_PULLOFF = 0x00000400
+                                    //NOTE_MASK_SLIDE = 0x00000800
+                                    //NOTE_MASK_BEND = 0x00001000
+                                    //NOTE_MASK_SUSTAIN = 0x00002000
+                                    //NOTE_MASK_TAP = 0x00004000
+                                    //NOTE_MASK_PINCHHARMONIC = 0x00008000
+                                    //NOTE_MASK_VIBRATO = 0x00010000
+                                    //NOTE_MASK_MUTE = 0x00020000
+                                    //NOTE_MASK_IGNORE = 0x00040000
+                                    //NOTE_MASK_HIGHDENSITY = 0x00200000
+                                    //NOTE_MASK_SLIDEUNPITCHEDTO = 0x00400000
+                                    //NOTE_MASK_DOUBLESTOP = 0x02000000
+                                    //NOTE_MASK_ACCENT = 0x04000000
+                                    //NOTE_MASK_PARENT = 0x08000000
+                                    //NOTE_MASK_CHILD = 0x10000000
+                                    //NOTE_MASK_ARPEGGIO = 0x20000000
+                                    //NOTE_MASK_POP = 0x00000100
+                                    //NOTE_MASK_STRUM = 0x80000000
+                                    //NOTE_MASK_ARTICULATIONS_RH = 0x0000C1C0
+                                    //NOTE_MASK_ARTICULATIONS_LH = 0x00020628
+                                    //NOTE_MASK_ARTICULATIONS = 0x0002FFF8
+                                    //NOTE_MASK_ROTATION_DISABLED = 0x0000C1E0
+
                                     // Update the arrangement hash with all note details
                                     // Ignore the mask of 0x80000000 (modified by CDLC repair)
                                     noteDataHash.AppendData(BitConverter.GetBytes(note.NoteMask | 0x80000000));
