@@ -536,6 +536,8 @@ namespace RockSnifferLib.RSHelpers
                             totalNotes = 1479;
                         }
 
+                        // TODO: Figure out why Badfish by Sublime gets the note count off by one
+                        //
                         // The lead path for Badfish by Sublime gets the wrong note count (off by 1). I dug into this issue THOROUGHLY and could not for the life of me figure out why.
                         // Like a bad programmer I will hardcode this for now lol. Hopefully I will encounter something similar in the future and will be able to find a pattern.
                         if (arrangement_id == "B21F30DD94B887B5D4C0E4631D0A511F")
