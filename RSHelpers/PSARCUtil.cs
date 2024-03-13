@@ -495,11 +495,20 @@ namespace RockSnifferLib.RSHelpers
                                                 // (notes with the mask 0x8000000 set are linked next)
                                                 if ((noteMask & 0x8000000) != 0)
                                                 {
-                                                    var linkedNote = arr.Notes[i + linkNextOffset++];
-                                                    if (isNoteIgnored(linkedNote))
+                                                    // If the next note is a chord things are handled differently
+                                                    if (arr.Notes[i + 1].FretId == 255)
                                                     {
-                                                        ignore = true;
-                                                        break;
+                                                        // TODO: figure out what to do here
+                                                        // Whatever goes here may be the key to figuring out Badfish by Sublime
+                                                    }
+                                                    else
+                                                    {
+                                                        var linkedNote = arr.Notes[i + linkNextOffset++];
+                                                        if (isNoteIgnored(linkedNote))
+                                                        {
+                                                            ignore = true;
+                                                            break;
+                                                        }
                                                     }
                                                 }
                                             }
