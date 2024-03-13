@@ -479,37 +479,25 @@ namespace RockSnifferLib.RSHelpers
                                                 // Unlike single notes, this doesn't apply to chords
                                                 //if ((noteMask & 0x8000000) != 0 && slideUnpitchTo != 255) { }
 
-                                                // This is the odd one... if the chord contains any note over 22 and any note that is muted, tremolo, bent, or vibrato
+                                                // This is the odd one... if the chord contains any note over 22 and any note that is muted, tremolo, bent, or vibrato, or linked next
                                                 // Mask 0x20000 is muted
                                                 // Mask 0x10 is tremolo
                                                 // Mask 0x1000 is bent
                                                 // Mask 0x10000 is vibrato
+                                                // Mask 0x8000000 is linkNext
                                                 // The bend does NOT have to be on the same note that is over 22
-                                                if (((noteMask & 0x20000) != 0 || (noteMask & 0x10) != 0 || (noteMask & 0x1000) != 0 || (noteMask & 0x10000) != 0) && chordOver22)
+                                                if (((noteMask & 0x20000) != 0 || (noteMask & 0x10) != 0 || (noteMask & 0x1000) != 0 || (noteMask & 0x10000) != 0 || (noteMask & 0x8000000) != 0) && chordOver22)
                                                 {
                                                     ignore = true;
                                                     break;
                                                 }
 
-                                                // If the chord is linked next to an ignored note, ignore it
+                                                // Special processing for chords that are linked next to other chords
                                                 // (notes with the mask 0x8000000 set are linked next)
-                                                if ((noteMask & 0x8000000) != 0)
+                                                if ((noteMask & 0x8000000) != 0 && arr.Notes[i + 1].FretId == 255)
                                                 {
-                                                    // If the next note is a chord things are handled differently
-                                                    if (arr.Notes[i + 1].FretId == 255)
-                                                    {
-                                                        // TODO: figure out what to do here
-                                                        // Whatever goes here may be the key to figuring out Badfish by Sublime
-                                                    }
-                                                    else
-                                                    {
-                                                        var linkedNote = arr.Notes[i + linkNextOffset++];
-                                                        if (isNoteIgnored(linkedNote))
-                                                        {
-                                                            ignore = true;
-                                                            break;
-                                                        }
-                                                    }
+                                                    // TODO: figure out what to do here
+                                                    // Whatever goes here may be the key to figuring out Badfish by Sublime
                                                 }
                                             }
                                         }
