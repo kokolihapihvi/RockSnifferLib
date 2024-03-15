@@ -353,14 +353,13 @@ namespace RockSnifferLib.RSHelpers
                                     noteDataHash.AppendData(BitConverter.GetBytes(note.Slap));
                                     noteDataHash.AppendData(BitConverter.GetBytes(note.Pluck));
                                     noteDataHash.AppendData(BitConverter.GetBytes(note.Vibrato));
-                                    noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.Sustain)));
-                                    noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.MaxBend)));
+                                    noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.Sustain, 3)));
+                                    noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.MaxBend, 3)));
 
                                     foreach (var bendData in note.BendData)
                                     {
-                                        noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData.Time)));
-                                        noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData.Step)));
-                                        noteDataHash.AppendData(BitConverter.GetBytes(bendData.Step));
+                                        noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData.Time, 3)));
+                                        noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData.Step, 3)));
                                         noteDataHash.AppendData(BitConverter.GetBytes(bendData.Unk3_0));
                                         noteDataHash.AppendData(BitConverter.GetBytes(bendData.Unk4_0));
                                         noteDataHash.AppendData(BitConverter.GetBytes(bendData.Unk5));
@@ -381,9 +380,8 @@ namespace RockSnifferLib.RSHelpers
                                             {
                                                 foreach (var bendData32 in bendData.BendData32)
                                                 {
-                                                    noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData32.Time)));
-                                                    noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData32.Step)));
-                                                    noteDataHash.AppendData(BitConverter.GetBytes(bendData32.Step));
+                                                    noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData32.Time, 3)));
+                                                    noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData32.Step, 3)));
                                                     noteDataHash.AppendData(BitConverter.GetBytes(bendData32.Unk3_0));
                                                     noteDataHash.AppendData(BitConverter.GetBytes(bendData32.Unk4_0));
                                                     noteDataHash.AppendData(BitConverter.GetBytes(bendData32.Unk5));
