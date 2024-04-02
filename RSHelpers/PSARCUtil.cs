@@ -490,13 +490,14 @@ namespace RockSnifferLib.RSHelpers
                                                     break;
                                                 }
 
-                                                // Special processing for chords that are linked next to other chords
-                                                // (notes with the mask 0x8000000 set are linked next)
-                                                if ((noteMask & 0x8000000) != 0 && arr.Notes[i + 1].FretId == 255)
-                                                {
-                                                    // TODO: figure out what to do here
-                                                    // Whatever goes here may be the key to figuring out Badfish by Sublime
-                                                }
+                                                // TODO: Investigate later (needed to comment out because it caused an out of bounds error for some charts)
+                                                //// Special processing for chords that are linked next to other chords
+                                                //// (notes with the mask 0x8000000 set are linked next)
+                                                //if ((noteMask & 0x8000000) != 0 && arr.Notes[i + 1].FretId == 255)
+                                                //{
+                                                //    // TODO: figure out what to do here
+                                                //    // Whatever goes here may be the key to figuring out Badfish by Sublime
+                                                //}
                                             }
                                         }
 
