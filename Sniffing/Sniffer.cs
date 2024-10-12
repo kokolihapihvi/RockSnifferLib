@@ -344,7 +344,7 @@ namespace RockSnifferLib.Sniffing
             if (processingQueue.Contains(psarcFile))
             {
                 //If processing was successful, invoke event
-                if (success) OnPsarcInstalled?.Invoke(this, new OnPsarcInstalledArgs() { FilePath = psarcFile });
+                OnPsarcInstalled?.Invoke(this, new OnPsarcInstalledArgs() { FilePath = psarcFile, ParseSuccess = success });
 
                 //Remove from queue
                 processingQueue.Remove(psarcFile);

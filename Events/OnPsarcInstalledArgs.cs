@@ -4,6 +4,7 @@ namespace RockSnifferLib.Events
 {
     public class OnPsarcInstalledArgs : EventArgs
     {
-        public string FilePath;
+        public required string FilePath;
+        public required bool ParseSuccess;
     }
 }
