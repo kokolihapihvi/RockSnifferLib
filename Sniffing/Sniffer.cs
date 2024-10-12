@@ -385,7 +385,7 @@ namespace RockSnifferLib.Sniffing
             Dictionary<string, SongDetails> allSongDetails;
             try
             {
-                allSongDetails = PSARCUtil.ReadPSARCHeaderData(fileInfo);
+                allSongDetails = PSARCUtil.ReadPSARCHeaderData(fileInfo, hash);
             }
             catch (Exception e)
             {
