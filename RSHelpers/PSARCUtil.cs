@@ -310,10 +310,10 @@ namespace RockSnifferLib.RSHelpers
                                     // discernable difference between notes
                                     //noteDataHash.AppendData(BitConverter.GetBytes(note.Hash));
 
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.StringIndex));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.FretId));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.AnchorFretId));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.AnchorWidth));
+                                    noteDataHash.AppendData([note.StringIndex]);
+                                    noteDataHash.AppendData([note.FretId]);
+                                    noteDataHash.AppendData([note.AnchorFretId]);
+                                    noteDataHash.AppendData([note.AnchorWidth]);
 
                                     // Ignore note.ChordId because it can differ even when there is
                                     // no discernable difference between notes
@@ -343,13 +343,13 @@ namespace RockSnifferLib.RSHelpers
                                     // Ignore note.ParentPrevNote (maybe modified by CDLC repair, maybe ignored altogether?)
                                     //noteDataHash.AppendData(BitConverter.GetBytes(note.ParentPrevNote));
 
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.SlideTo));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.SlideUnpitchTo));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.LeftHand));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.Tap));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.PickDirection));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.Slap));
-                                    noteDataHash.AppendData(BitConverter.GetBytes(note.Pluck));
+                                    noteDataHash.AppendData([note.SlideTo]);
+                                    noteDataHash.AppendData([note.SlideUnpitchTo]);
+                                    noteDataHash.AppendData([note.LeftHand]);
+                                    noteDataHash.AppendData([note.Tap]);
+                                    noteDataHash.AppendData([note.PickDirection]);
+                                    noteDataHash.AppendData([note.Slap]);
+                                    noteDataHash.AppendData([note.Pluck]);
                                     noteDataHash.AppendData(BitConverter.GetBytes(note.Vibrato));
                                     noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.Sustain, 3)));
                                     noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(note.MaxBend, 3)));
@@ -359,8 +359,8 @@ namespace RockSnifferLib.RSHelpers
                                         noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData.Time, 3)));
                                         noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData.Step, 3)));
                                         noteDataHash.AppendData(BitConverter.GetBytes(bendData.Unk3_0));
-                                        noteDataHash.AppendData(BitConverter.GetBytes(bendData.Unk4_0));
-                                        noteDataHash.AppendData(BitConverter.GetBytes(bendData.Unk5));
+                                        noteDataHash.AppendData([bendData.Unk4_0]);
+                                        noteDataHash.AppendData([bendData.Unk5]);
                                     }
 
                                     if (note.FretId == 255)
@@ -381,8 +381,8 @@ namespace RockSnifferLib.RSHelpers
                                                     noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData32.Time, 3)));
                                                     noteDataHash.AppendData(BitConverter.GetBytes((float)Math.Round(bendData32.Step, 3)));
                                                     noteDataHash.AppendData(BitConverter.GetBytes(bendData32.Unk3_0));
-                                                    noteDataHash.AppendData(BitConverter.GetBytes(bendData32.Unk4_0));
-                                                    noteDataHash.AppendData(BitConverter.GetBytes(bendData32.Unk5));
+                                                    noteDataHash.AppendData([bendData32.Unk4_0]);
+                                                    noteDataHash.AppendData([bendData32.Unk5]);
                                                 }
 
                                                 noteDataHash.AppendData(BitConverter.GetBytes(bendData.UsedCount));
@@ -390,12 +390,12 @@ namespace RockSnifferLib.RSHelpers
 
                                             foreach (var slideTo in chordNotes.SlideTo)
                                             {
-                                                noteDataHash.AppendData(BitConverter.GetBytes(slideTo));
+                                                noteDataHash.AppendData([slideTo]);
                                             }
 
                                             foreach (var slideUnpitchTo in chordNotes.SlideUnpitchTo)
                                             {
-                                                noteDataHash.AppendData(BitConverter.GetBytes(slideUnpitchTo));
+                                                noteDataHash.AppendData([slideUnpitchTo]);
                                             }
 
                                             foreach (var vibrato in chordNotes.Vibrato)
@@ -448,7 +448,6 @@ namespace RockSnifferLib.RSHelpers
                                         var chordNotesID = note.ChordNotesId;
                                         if (chordNotesID != -1)
                                         {
-                                            var linkNextOffset = 1;
                                             var chordNotes = arrangementSng.ChordNotes[chordNotesID];
                                             for (var j = 0; j < chordNotes.NoteMask.Length; ++j)
                                             {
