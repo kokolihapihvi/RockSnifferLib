@@ -101,19 +101,6 @@ namespace RockSnifferLib.RSHelpers
                 }
             }
 
-            // MODS ACTIVE
-            //
-            // The mods include an anti-cheat mechanism so it is useful to know whether a user has the mods active or not
-            var modCheck = MemoryHelper.ReadByteFromMemory(rsProcessHandle, new IntPtr(0x0041C640));
-            if (modCheck == 0xE0)
-            {
-                readout.modsActive = true;
-            }
-            else
-            {
-                readout.modsActive = false;
-            }
-
             // NOTE DATA
             //
             // For learn a song:
@@ -145,7 +132,6 @@ namespace RockSnifferLib.RSHelpers
             prevReadout.songID = readout.songID;
             prevReadout.gameStage = readout.gameStage;
             prevReadout.songTimer = readout.songTimer;
-            prevReadout.modsActive = readout.modsActive;
 
             return prevReadout;
         }
