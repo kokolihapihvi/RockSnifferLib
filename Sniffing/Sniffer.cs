@@ -104,7 +104,7 @@ namespace RockSnifferLib.Sniffing
         public Sniffer(Process rsProcess, ICache cache, SnifferSettings settings = null)
         {
             //Use default settings if no settings were given
-            if (settings == null) settings = new SnifferSettings();
+            settings ??= new SnifferSettings();
 
             _rsProcess = rsProcess;
             _cache = cache;

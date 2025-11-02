@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 
 namespace RockSnifferLib.RSHelpers
@@ -90,7 +91,7 @@ namespace RockSnifferLib.RSHelpers
                     Logger.LogError("Warning! Could not parse psarc file {0}: {1}", fileInfo.Name, e.Message);
                     return null;
                 }
-
+                
                 //Extract all arrangements
                 foreach (var v in manifests)
                 {
@@ -102,12 +103,9 @@ namespace RockSnifferLib.RSHelpers
 
                     var arrangement = v.Attributes;
                     var arrangement_id = arrangement.PersistentID;
+                    var arrangement_name = arrangement.ArrangementName;
 
-                    var sngPath = $"songs/bin/generic/{arrangement.SongXml.Substring(20)}.sng";
-                    var arrangementSng = loader.InflateEntry<SngAsset>(a => a.Path.Equals(sngPath));
-                    ArrangementData arrangementData = new ArrangementData(arrangementSng);
-
-                    if (arrangement.Phrases != null)
+                    if (arrangement_name.Equals("Vocals"))
                     {
                         if (!detailsDict.ContainsKey(arrangement.SongKey))
                         {
@@ -116,124 +114,165 @@ namespace RockSnifferLib.RSHelpers
 
                         SongDetails details = detailsDict[arrangement.SongKey];
 
-                        if (details.albumArt == null)
+                        var arrangementSng = loader.InflateEntry<SngAsset>(a => a.Path.Equals($"songs/bin/generic/{arrangement.SongXml.Substring(20)}.sng"));
+                        var arrangement_vocals = arrangementSng.Vocals;
+
+                        //Get a list of all vocals
+                        List<SongDetails.VocalDetails> vocals = [];
+                        if (arrangement_vocals != null && details.vocals != null && details.vocals.Count == 0)
                         {
-                            try
+                            foreach (var voc in arrangement_vocals)
                             {
-                                details.albumArt = loader.ExtractAlbumArt(arrangement).Bitmap;
+                                // var lyricBytes = Encoding.GetEncoding("ISO-8859-1").GetBytes(voc.Lyric);
+                                // var lyric = Encoding.UTF8.GetString(lyricBytes);
+                                Encoding iso = Encoding.GetEncoding("ISO-8859-1");
+                                Encoding utf8 = Encoding.UTF8;
+                                byte[] isoBytes = iso.GetBytes(voc.Lyric);
+                                byte[] utfBytes = Encoding.Convert(iso, utf8, isoBytes);
+                                string lyric = utf8.GetString(isoBytes);
+
+                                var vocalDetails = new SongDetails.VocalDetails
+                                {
+                                    Time = voc.Time,
+                                    Note = voc.Note,
+                                    Length = voc.Length,
+                                    Lyric = lyric
+                                };
+                                vocals.Add(vocalDetails);
                             }
-                            catch (Exception e)
+                            details.vocals = vocals;
+                        }
+                    }
+                    else //Not a vocal arrangement
+                    {
+                        var sngPath = $"songs/bin/generic/{arrangement.SongXml.Substring(20)}.sng";
+                        var arrangementSng = loader.InflateEntry<SngAsset>(a => a.Path.Equals(sngPath));
+                        ArrangementData arrangementData = new(arrangementSng);
+
+                        if (arrangement.Phrases != null)
+                        {
+                            if (!detailsDict.TryGetValue(arrangement.SongKey, out SongDetails? details))
                             {
-                                Logger.LogError("Warning: couldn't extract album art for {0}", arrangement.SongName);
+                                details = new SongDetails();
+                                detailsDict[arrangement.SongKey] = details;
+                            }
+
+                            if (details.albumArt == null)
+                            {
+                                try
+                                {
+                                    details.albumArt = loader.ExtractAlbumArt(arrangement).Bitmap;
+                                }
+                                catch (Exception e)
+                                {
+                                    Logger.LogError("Warning: couldn't extract album art for {0}", arrangement.SongName);
 #if DEBUG
-                                Logger.LogException(e);
+                                    Logger.LogException(e);
 #endif
 
-                                details.albumArt = new Bitmap(1, 1);
-                            }
-                        }
-
-                        //Get a list of all sections
-                        var sections = new List<ArrangementDetails.SectionDetails>();
-                        Dictionary<string, int> sectionCounts = new Dictionary<string, int>();
-
-                        foreach (var sect in arrangement.Sections)
-                        {
-                            if (!sectionCounts.ContainsKey(sect.Name))
-                            {
-                                sectionCounts[sect.Name] = 1;
+                                    details.albumArt = new Bitmap(1, 1);
+                                }
                             }
 
-                            var sectionDetails = new ArrangementDetails.SectionDetails
+                            //Get a list of all sections
+                            List<ArrangementDetails.SectionDetails> sections = [];
+                            Dictionary<string, int> sectionCounts = [];
+
+                            foreach (var sect in arrangement.Sections)
                             {
-                                name = $"{sect.Name} {sectionCounts[sect.Name]}",
-                                startTime = sect.StartTime,
-                                endTime = sect.EndTime
+                                if (!sectionCounts.ContainsKey(sect.Name))
+                                {
+                                    sectionCounts[sect.Name] = 1;
+                                }
+
+                                var sectionDetails = new ArrangementDetails.SectionDetails
+                                {
+                                    name = $"{sect.Name} {sectionCounts[sect.Name]}",
+                                    startTime = sect.StartTime,
+                                    endTime = sect.EndTime
+                                };
+
+                                sections.Add(sectionDetails);
+                                sectionCounts[sect.Name]++;
+                            }
+
+
+                            //Get a list of all phraseIterations
+                            List<ArrangementDetails.PhraseIterationDetails> phraseIterations =[];
+                            Dictionary<string, int> phraseIterationCounts = [];
+
+                            foreach (var phrI in arrangement.PhraseIterations)
+                            {
+                                if (!phraseIterationCounts.ContainsKey(phrI.Name))
+                                {
+                                    phraseIterationCounts[phrI.Name] = 1;
+                                }
+
+                                var phraseIterationDetails = new ArrangementDetails.PhraseIterationDetails
+                                {
+                                    name = $"{phrI.Name} {phraseIterationCounts[phrI.Name]}",
+                                    phraseId = phrI.PhraseIndex,
+                                    maxDifficulty = phrI.MaxDifficulty,
+                                    startTime = phrI.StartTime,
+                                    endTime = phrI.EndTime
+                                };
+
+                                phraseIterations.Add(phraseIterationDetails);
+                                phraseIterationCounts[phrI.Name]++;
+                            }
+
+                            //Build arrangement details
+                            ArrangementDetails arrangementDetails = new()
+                            {
+                                name = arrangement.ArrangementName,
+                                arrangementID = arrangement_id,
+                                sections = sections,
+                                phraseIterations = phraseIterations,
+                                data = arrangementData,
+                                isBonusArrangement = (arrangement.ArrangementProperties.BonusArr == 1),
+                                isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0)
                             };
 
-                            sections.Add(sectionDetails);
-
-                            sectionCounts[sect.Name]++;
-                        }
-
-
-                        //Get a list of all phraseIterations
-                        var phraseIterations = new List<ArrangementDetails.PhraseIterationDetails>();
-                        Dictionary<string, int> phraseIterationCounts = new Dictionary<string, int>();
-
-                        foreach (var phrI in arrangement.PhraseIterations)
-                        {
-                            if (!phraseIterationCounts.ContainsKey(phrI.Name))
+                            //Determine path type
+                            if (arrangement.ArrangementProperties.PathLead == 1)
                             {
-                                phraseIterationCounts[phrI.Name] = 1;
+                                arrangementDetails.type = "Lead";
+                            }
+                            else if (arrangement.ArrangementProperties.PathRhythm == 1)
+                            {
+                                arrangementDetails.type = "Rhythm";
+                            }
+                            else if (arrangement.ArrangementProperties.PathBass == 1)
+                            {
+                                arrangementDetails.type = "Bass";
                             }
 
-                            var phraseIterationDetails = new ArrangementDetails.PhraseIterationDetails
+                            arrangementDetails.tuning = new ArrangementTuning(arrangement.Tuning, (int)arrangement.CentOffset, (int)arrangement.CapoFret);
+
+
+                            //file hash
+                            details.psarcFileHash = fileHash;
+
+                            //Get general song information
+                            details.songID = arrangement.SongKey;
+                            details.songLength = arrangement.SongLength;
+                            details.songName = arrangement.SongName;
+                            details.artistName = arrangement.ArtistName;
+                            details.albumName = arrangement.AlbumName;
+                            details.albumYear = arrangement.SongYear;
+                            details.arrangements.Add(arrangementDetails);
+
+                            //Apply toolkit information
+                            details.toolkit = new ToolkitDetails
                             {
-                                name = $"{phrI.Name} {phraseIterationCounts[phrI.Name]}",
-                                phraseId = phrI.PhraseIndex,
-                                maxDifficulty = phrI.MaxDifficulty,
-                                startTime = phrI.StartTime,
-                                endTime = phrI.EndTime
+                                version = tkInfo.PackageVersion,
+                                author = tkInfo.PackageAuthor,
+                                comment = tkInfo.PackageComment,
+                                package_version = tkInfo.PackageVersion
                             };
-
-                            phraseIterations.Add(phraseIterationDetails);
-
-                            phraseIterationCounts[phrI.Name]++;
                         }
-
-                        //Build arrangement details
-                        var arrangementDetails = new ArrangementDetails
-                        {
-                            name = arrangement.ArrangementName,
-                            arrangementID = arrangement_id,
-                            sections = sections,
-                            phraseIterations = phraseIterations,
-                            data = arrangementData,
-                            isBonusArrangement = (arrangement.ArrangementProperties.BonusArr == 1),
-                            isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0)
-                        };
-
-                        //Determine path type
-                        if (arrangement.ArrangementProperties.PathLead == 1)
-                        {
-                            arrangementDetails.type = "Lead";
-                        }
-                        else if (arrangement.ArrangementProperties.PathRhythm == 1)
-                        {
-                            arrangementDetails.type = "Rhythm";
-                        }
-                        else if (arrangement.ArrangementProperties.PathBass == 1)
-                        {
-                            arrangementDetails.type = "Bass";
-                        }
-
-                        arrangementDetails.tuning = new ArrangementTuning(arrangement.Tuning, (int)arrangement.CentOffset, (int)arrangement.CapoFret);
-
-
-                        //file hash
-                        details.psarcFileHash = fileHash;
-
-                        //Get general song information
-                        details.songID = arrangement.SongKey;
-                        details.songLength = arrangement.SongLength;
-                        details.songName = arrangement.SongName;
-                        details.artistName = arrangement.ArtistName;
-                        details.albumName = arrangement.AlbumName;
-                        details.albumYear = arrangement.SongYear;
-                        details.arrangements.Add(arrangementDetails);
-
-                        //Apply toolkit information
-                        details.toolkit = new ToolkitDetails
-                        {
-                            version = tkInfo.PackageVersion,
-                            author = tkInfo.PackageAuthor,
-                            comment = tkInfo.PackageComment,
-                            package_version = tkInfo.PackageVersion
-                        };
                     }
                 }
-
                 sw.Stop();
 
                 Logger.Log("Parsed {0} ({1}mb) in {2}ms and found {3} songs", fileInfo.Name, fileInfo.Length / 1024 / 1024, sw.ElapsedMilliseconds, detailsDict.Count);

@@ -44,6 +44,7 @@ namespace RockSnifferLib.Cache
 	            `albumYear`         INTEGER,
 	            `arrangements`	    TEXT,
                 `album_art`	        BLOB,
+                `vocals`            TEXT,
 	            `toolkit_version`	TEXT,
 	            `toolkit_author`	TEXT,
 	            `toolkit_package_version`	TEXT,
@@ -108,12 +109,13 @@ namespace RockSnifferLib.Cache
                 `albumYear`,
                 `arrangements`,
                 `album_art`,
+                `vocals`,
                 `toolkit_version`,
                 `toolkit_author`,
                 `toolkit_package_version`,
                 `toolkit_comment`
             )
-            VALUES (@psarcFile,@psarcFileHash,@songid,@songname,@artistname,@albumname,@songLength,@albumYear,@arrangements,@album_art,@toolkit_version,@toolkit_author,@toolkit_package_version,@toolkit_comment);
+            VALUES (@psarcFile,@psarcFileHash,@songid,@songname,@artistname,@albumname,@songLength,@albumYear,@arrangements,@album_art,@vocals,@toolkit_version,@toolkit_author,@toolkit_package_version,@toolkit_comment);
             ";
 
             using (var cmd = Connection.CreateCommand())
@@ -130,6 +132,7 @@ namespace RockSnifferLib.Cache
                 cmd.Parameters.Add("@albumYear", DbType.Int32);
                 cmd.Parameters.Add("@arrangements", DbType.String);
                 cmd.Parameters.Add("@album_art", DbType.Binary);
+                cmd.Parameters.Add("@vocals", DbType.String);
                 cmd.Parameters.Add("@toolkit_version", DbType.String);
                 cmd.Parameters.Add("@toolkit_author", DbType.String);
                 cmd.Parameters.Add("@toolkit_package_version", DbType.String);
@@ -153,6 +156,7 @@ namespace RockSnifferLib.Cache
                     cmd.Parameters["@toolkit_package_version"].Value = sd.toolkit.package_version;
                     cmd.Parameters["@toolkit_comment"].Value = sd.toolkit.comment;
                     cmd.Parameters["@album_art"].Value = null;
+                    cmd.Parameters["@vocals"].Value = JsonConvert.SerializeObject(sd.vocals);
 
                     if (sd.albumArt != null)
                     {
@@ -247,6 +251,7 @@ namespace RockSnifferLib.Cache
                             songLength = (float)ReadField<double>(reader, "songLength"),
                             albumYear = (int)ReadField<long>(reader, "albumYear"),
                             arrangements = JsonConvert.DeserializeObject<List<ArrangementDetails>>(ReadField<string>(reader, "arrangements")),
+                            vocals = JsonConvert.DeserializeObject<List<SongDetails.VocalDetails>>(ReadField<string>(reader, "vocals")),
                             albumArt = null,
 
                             toolkit = new ToolkitDetails
