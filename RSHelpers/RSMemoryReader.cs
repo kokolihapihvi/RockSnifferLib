@@ -12,12 +12,19 @@ namespace RockSnifferLib.RSHelpers
         private RSMemoryReadout prevReadout = new RSMemoryReadout();
 
         //Process handles
-        public Process rsProcess;
+        private readonly Process rsProcess;
+        private readonly RSEdition edition;
         private readonly IntPtr rsProcessHandle;
 
-        public RSMemoryReader(Process rsProcess)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="rsProcess"></param>
+        /// <param name="edition"></param>
+        public RSMemoryReader(Process rsProcess, RSEdition edition)
         {
             this.rsProcess = rsProcess;
+            this.edition = edition;
 
             rsProcessHandle = rsProcess.Handle;
         }
@@ -27,7 +34,7 @@ namespace RockSnifferLib.RSHelpers
         /// </summary>
         public void TriggerEnumeration()
         {
-            IntPtr addr = FollowPointers(0xF71E10+0x3080, new int[] { 0x8, 0x4 });
+            IntPtr addr = FollowPointers(MemoryOffsets.GetEnumerationFlagPointer(edition));
 
             MemoryHelper.WriteBytesToMemory(rsProcessHandle, addr, new byte[] { 0x01 });
         }
@@ -41,11 +48,7 @@ namespace RockSnifferLib.RSHelpers
             // SONG ID
             //
             // Seems to be a zero terminated string in the format: Play_SONGID_Preview
-            //
-            //Candidate #1: FollowPointers(0x00F5C494, new int[] { 0xBC, 0x0 })
-            //Candidate #2: FollowPointers(0x00F80CEC, new int[] { 0x598, 0x1B8, 0x0 })
-            //Candidate #3: FollowPointers(0x00F5DAFC, new int[] { 0x608, 0x1B8, 0x0 })
-            string preview_name = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C494+0x3080, new int[] { 0xBC, 0x0 }));
+            string preview_name = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(MemoryOffsets.GetSongIdPointer(edition)));
 
             //If there was string in memory
             if (preview_name != null)
@@ -64,16 +67,12 @@ namespace RockSnifferLib.RSHelpers
             }
 
             // SONG TIMER
-            //
-            //Weird static address: FollowPointers(0x01567AB0, new int[]{ 0x80, 0x20, 0x10C, 0x244 })
-            //Candidate #1: FollowPointers(0x00F5C5AC, new int[] { 0xB0, 0x538, 0x8 })
-            //Candidate #2: FollowPointers(0x00F5C4CC, new int[] { 0x5F0, 0x538, 0x8 })
-            ReadSongTimer(FollowPointers(0x00F5C5AC+0x3080, new int[] { 0xB0, 0x538, 0x8 }));
+            ReadSongTimer(FollowPointers(MemoryOffsets.GetSongTimerPointer(edition)));
 
             // ARRANGEMENT HASH
             //
             // This is set to the arrangement persistent id while playing a song
-            string arrangement_hash = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC+0x3080, new int[] { 0x18, 0x18, 0xC, 0x1C0, 0x0 }));
+            string arrangement_hash = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(MemoryOffsets.GetArrangementHashPointer(edition)));
             if (arrangement_hash != null)
             {
                 readout.arrangementID = arrangement_hash;
@@ -85,11 +84,7 @@ namespace RockSnifferLib.RSHelpers
             // Can be garbled under unknown circumstances
             // Exists in two (and probably more) locations, where only one may be valid, this tries to get either
             // Prioritizing the one at 0x27C, because it is more human readable
-            string game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC+0x3080, new int[] { 0x18, 0x18, 0xC, 0x27C }));
-            if (game_stage == null)
-            {
-                game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(0x00F5C5AC+0x3080, new int[] { 0x18, 0x18, 0xC, 0x14 }));
-            }
+            string game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(MemoryOffsets.GetCurrentMenuPointer(edition)));
 
             //If we got a game stage
             if (game_stage != null)
@@ -113,10 +108,10 @@ namespace RockSnifferLib.RSHelpers
 
             //If note data is not valid, try the next mode
             //Learn a song
-            if (!ReadNoteData(FollowPointers(0x00F5C5AC+0x3080, new int[] { 0xB0, 0x18, 0x4, 0x84, 0x0 })))
+            if (!ReadNoteData(FollowPointers(MemoryOffsets.GetLearnASongNoteDataPointer(edition))))
             {
                 //Score attack
-                if (!ReadScoreAttackNoteData(FollowPointers(0x00F5C5AC+0x3080, new int[] { 0xB0, 0x18, 0x4, 0x4C, 0x0 })))
+                if (!ReadScoreAttackNoteData(FollowPointers(MemoryOffsets.GetScoreAttackNoteDataPointer(edition))))
                 {
                     readout.mode = RSMode.UNKNOWN;
                 }
@@ -134,6 +129,11 @@ namespace RockSnifferLib.RSHelpers
             prevReadout.songTimer = readout.songTimer;
 
             return prevReadout;
+        }
+
+        private IntPtr FollowPointers((int entryAddress, int[] offsets) tuple)
+        {
+            return FollowPointers(tuple.entryAddress, tuple.offsets);
         }
 
         private IntPtr FollowPointers(int entryAddress, int[] offsets)
