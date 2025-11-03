@@ -123,20 +123,12 @@ namespace RockSnifferLib.RSHelpers
                         {
                             foreach (var voc in arrangement_vocals)
                             {
-                                // var lyricBytes = Encoding.GetEncoding("ISO-8859-1").GetBytes(voc.Lyric);
-                                // var lyric = Encoding.UTF8.GetString(lyricBytes);
-                                Encoding iso = Encoding.GetEncoding("ISO-8859-1");
-                                Encoding utf8 = Encoding.UTF8;
-                                byte[] isoBytes = iso.GetBytes(voc.Lyric);
-                                byte[] utfBytes = Encoding.Convert(iso, utf8, isoBytes);
-                                string lyric = utf8.GetString(isoBytes);
-
                                 var vocalDetails = new SongDetails.VocalDetails
                                 {
                                     Time = voc.Time,
                                     Note = voc.Note,
                                     Length = voc.Length,
-                                    Lyric = lyric
+                                    Lyric = voc.Lyric
                                 };
                                 vocals.Add(vocalDetails);
                             }
