@@ -10,6 +10,15 @@ namespace RockSnifferLib.Sniffing
     [Serializable]
     public class SongDetails
     {
+        public class VocalDetails
+        {
+            public float Time;
+            public int Note;
+            public float Length;
+            public string? Lyric;
+        }
+        public List<VocalDetails> vocals = [];
+
         public string songID;
         public string songName;
         public string artistName;
