@@ -65,6 +65,11 @@ namespace RockSnifferLib.Sniffing
         /// Reference to the rocksmith process
         /// </summary>
         private readonly Process _rsProcess;
+        
+        /// <summary>
+        /// Which _edition of Rocksmith we are attached to
+        /// </summary>
+        private readonly RSEdition _edition;
 
         /// <summary>
         /// Cache to use
@@ -101,17 +106,20 @@ namespace RockSnifferLib.Sniffing
         /// </summary>
         /// <param name="rsProcess"></param>
         /// <param name="cache"></param>
-        public Sniffer(Process rsProcess, ICache cache, SnifferSettings settings = null)
+        /// <param name="edition"></param>
+        /// <param name="settings"></param>
+        public Sniffer(Process rsProcess, ICache cache, RSEdition edition, SnifferSettings? settings = null)
         {
             //Use default settings if no settings were given
-            if (settings == null) settings = new SnifferSettings();
+            settings ??= new SnifferSettings();
 
             _rsProcess = rsProcess;
             _cache = cache;
+            _edition = edition;
             _settings = settings;
 
-            //Initialise memory reader
-            memReader = new RSMemoryReader(rsProcess);
+            //Initialize memory reader
+            memReader = new RSMemoryReader(_rsProcess, _edition);
 
             OnStateChanged += Sniffer_OnStateChanged;
 
