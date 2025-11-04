@@ -28,9 +28,11 @@ namespace RockSnifferLib.Sniffing
         public string type;
         public bool isBonusArrangement;
         public bool isAlternateArrangement;
+        public int totalNotes;
         public ArrangementTuning tuning;
         public List<SectionDetails> sections = new List<SectionDetails>();
         public List<PhraseIterationDetails> phraseIterations = new List<PhraseIterationDetails>();
         public ArrangementData data;
+        public String noteDataHash;
     }
 }

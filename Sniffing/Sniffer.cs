@@ -1,4 +1,5 @@
-﻿using RockSnifferLib.Cache;
+﻿using Rocksmith2014PsarcLib.Psarc;
+using RockSnifferLib.Cache;
 using RockSnifferLib.Configuration;
 using RockSnifferLib.Events;
 using RockSnifferLib.Logging;
@@ -8,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
@@ -44,6 +46,21 @@ namespace RockSnifferLib.Sniffing
         /// Fired when a new psarc file is added to the dlc folder
         /// </summary>
         public event EventHandler<OnPsarcInstalledArgs> OnPsarcInstalled;
+
+        /// <summary>
+        /// Fired when psarc processing count is updated
+        /// </summary>
+        public event EventHandler<OnPsarcProcessingCountChangedArgs> OnPsarcProcessingCountChanged;
+
+        /// <summary>
+        /// Used to synchronize access of the psarcProcessingCount between threads
+        /// </summary>
+        private object psarcProcessingCountMutex = new object();
+
+        /// <summary>
+        /// Count of psarc files left to process
+        /// </summary>
+        private int psarcProcessingCount = 0;
 
         /// <summary>
         /// The current state of rocksmith, initial state is IN_MENUS
@@ -132,6 +149,24 @@ namespace RockSnifferLib.Sniffing
             DoMemoryReadout();
             DoStateMachine();
             DoSniffing();
+        }
+
+        private void IncrementPsarcProcessingCount()
+        {
+            lock (psarcProcessingCountMutex)
+            {
+                psarcProcessingCount++;
+                OnPsarcProcessingCountChanged?.Invoke(this, new OnPsarcProcessingCountChangedArgs { count = psarcProcessingCount });
+            }
+        }
+
+        private void DecrementPsarcProcessingCount()
+        {
+            lock (psarcProcessingCountMutex)
+            {
+                psarcProcessingCount--;
+                OnPsarcProcessingCountChanged?.Invoke(this, new OnPsarcProcessingCountChangedArgs { count = psarcProcessingCount });
+            }
         }
 
         /// <summary>
@@ -336,6 +371,8 @@ namespace RockSnifferLib.Sniffing
 
             processingQueue.Add(psarcFile);
 
+            IncrementPsarcProcessingCount();
+
             //Add to block to process the psarc file
             bool posted = psarcFileBlock.Post(psarcFile);
 
@@ -357,6 +394,8 @@ namespace RockSnifferLib.Sniffing
                 //Remove from queue
                 processingQueue.Remove(psarcFile);
             }
+
+            DecrementPsarcProcessingCount();
 
             if (Logger.logProcessingQueue)
             {
@@ -433,6 +472,7 @@ namespace RockSnifferLib.Sniffing
 
             foreach (string psarcFile in psarcFiles)
             {
+                IncrementPsarcProcessingCount();
                 psarcFileBlock.Post(psarcFile);
             }
 
@@ -451,6 +491,15 @@ namespace RockSnifferLib.Sniffing
         public void Stop()
         {
             running = false;
+
+            // Reset memory redout and song details
+            currentMemoryReadout = new RSMemoryReadout();
+            currentCDLCDetails = new SongDetails();
+            
+            OnMemoryReadout?.Invoke(this, new OnMemoryReadoutArgs() { memoryReadout = currentMemoryReadout });
+            OnSongChanged?.Invoke(this, new OnSongChangedArgs() { songDetails = currentCDLCDetails });
+
+            UpdateState();
 
             foreach (var watcher in fileSystemWatchers)
             {
