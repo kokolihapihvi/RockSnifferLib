@@ -56,9 +56,9 @@ namespace RockSnifferLib.RSHelpers
         /// <summary>
         /// Reads psarc file from filepath and populates details with information
         /// </summary>
-        /// <param name="filepath"></param>
-        /// <param name="details"></param>
-        internal static Dictionary<string, SongDetails> ReadPSARCHeaderData(FileInfo fileInfo)
+        /// <param name="fileInfo"></param>
+        /// <param name="fileHash"></param>
+        internal static Dictionary<string, SongDetails> ReadPSARCHeaderData(FileInfo fileInfo, string fileHash)
         {
             //Wait for the file to exist
             WaitForFile(fileInfo);
@@ -71,8 +71,6 @@ namespace RockSnifferLib.RSHelpers
 
             var sw = new Stopwatch();
             sw.Start();
-
-            string fileHash = GetFileHash(fileInfo);
 
             var detailsDict = new Dictionary<string, SongDetails>();
 
