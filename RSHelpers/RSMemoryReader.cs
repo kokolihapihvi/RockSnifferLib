@@ -75,9 +75,7 @@ namespace RockSnifferLib.RSHelpers
             // SONG TIMER
             ReadSongTimer(FollowPointers(MemoryOffsets.GetSongTimerPointer(edition)));
 
-            // GAME STAGE
-            //
-            // Read before the arrangement ID, which picks its pointer by game stage
+            // GAME STAGE: read before the arrangement ID, which picks its pointer by game stage
             string game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(MemoryOffsets.GetCurrentMenuPointer(edition)));
 
             //If we got a game stage
@@ -90,19 +88,14 @@ namespace RockSnifferLib.RSHelpers
                 }
             }
 
-            // MODE
-            //
-            // The plain "tuner" stage can be opened from any mode, so keep the previous mode
+            // MODE: the plain "tuner" stage opens from any mode, so it keeps the previous one
             if (!string.Equals(readout.gameStage, "tuner", StringComparison.OrdinalIgnoreCase))
             {
                 readout.mode = DeriveModeFromGameStage(readout.gameStage);
             }
 
-            // ARRANGEMENT ID
-            //
-            // The arrangement hash isn't set in Nonstop Play, so Learn a Song and Nonstop
-            // read the loaded arrangement GUID instead. A read that isn't 32 hex characters
-            // keeps the previous value.
+            // ARRANGEMENT ID: the hash isn't set in Nonstop Play, so Learn a Song and Nonstop
+            // read the loaded arrangement GUID. Invalid reads keep the previous value.
             bool usePlayArrIDChain = readout.gameStage == "las_game"
                                   || readout.gameStage == "las_pause"
                                   || readout.gameStage == "nonstopplaygame"
@@ -194,9 +187,7 @@ namespace RockSnifferLib.RSHelpers
             return prevReadout;
         }
 
-        /// <summary>
-        /// Check for a 32 character hex string, to filter out garbage reads while a song loads
-        /// </summary>
+        // Filters out garbage reads while a song loads
         private static bool IsValidArrangementHash(string s)
         {
             if (string.IsNullOrEmpty(s) || s.Length != 32)
@@ -216,9 +207,6 @@ namespace RockSnifferLib.RSHelpers
             return true;
         }
 
-        /// <summary>
-        /// Map a gameStage string to a mode. The plain "tuner" stage is handled by the caller.
-        /// </summary>
         private static RSMode DeriveModeFromGameStage(string gameStage)
         {
             if (string.IsNullOrEmpty(gameStage))
@@ -230,7 +218,6 @@ namespace RockSnifferLib.RSHelpers
 
             switch (gs)
             {
-                // LEARNASONG
                 case "learnasong":
                 case "las_songs":
                 case "las_options":
@@ -240,7 +227,6 @@ namespace RockSnifferLib.RSHelpers
                 case "las_songreview":
                     return RSMode.LEARNASONG;
 
-                // SCOREATTACK
                 case "scoreattack":
                 case "panel_bib":
                 case "scoreattack_presongtuner":
@@ -249,14 +235,12 @@ namespace RockSnifferLib.RSHelpers
                 case "sa_songreview":
                     return RSMode.SCOREATTACK;
 
-                // GUITARCADE
                 case "gcpre":
                 case "gcade":
                 case "gcade_game":
                 case "guitarcade_tuner":
                     return RSMode.GUITARCADE;
 
-                // NONSTOPPLAY
                 case "nonstopplay":
                 case "nsp_main":
                 case "nonstopplayhub":
@@ -265,16 +249,13 @@ namespace RockSnifferLib.RSHelpers
                 case "nsp_pause":
                     return RSMode.NONSTOPPLAY;
 
-                // LESSONS
                 case "getuner":
                 case "pregametuner":
                     return RSMode.LESSONS;
 
-                // MULTIPLAYER
                 case "split_game":
                     return RSMode.MULTIPLAYER;
 
-                // MENU
                 case "titlescreen":
                 case "profileselect":
                 case "main":
@@ -286,7 +267,6 @@ namespace RockSnifferLib.RSHelpers
                     return RSMode.MENU;
             }
 
-            // Stages not listed above
             if (gs.StartsWith("gc_")) return RSMode.GUITARCADE;
             if (gs.StartsWith("sm_")) return RSMode.SESSION;
             if (gs.StartsWith("ge_")) return RSMode.LESSONS;
@@ -337,9 +317,7 @@ namespace RockSnifferLib.RSHelpers
             readout.songTimer = MemoryHelper.ReadFloatFromMemory(rsProcessHandle, timerAddress);
         }
 
-        /// <summary>
-        /// Read a 16 byte GUID as uppercase hex without dashes, the format of arrangement IDs
-        /// </summary>
+        // Same format as the arrangement IDs in song details
         private string ReadGuidFromMemory(IntPtr address)
         {
             if (address == IntPtr.Zero)

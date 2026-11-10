@@ -68,41 +68,34 @@ namespace RockSnifferLib.Sniffing
         /// </summary>
         private RSMemoryReadout currentMemoryReadout = new RSMemoryReadout();
 
-        // Timer tracking for the current run. initTime is just past the lowest timer
-        // value seen, so a restart (timer back near the start) can be detected.
+        // initTime is just past the lowest timer seen in the run, for restart detection
         private float lowTime = float.MaxValue;
         private float initTime = float.MaxValue;
         private float maxTime = float.MinValue;
         private bool paused = false;
 
-        // Timer when the pause started. On Exit from the pause menu the overlay closes
-        // while the timer stays put, which must not count as a resume.
+        // Exit from the pause menu closes the overlay without moving the timer; not a resume
         private float pauseTimerSnapshot = float.MinValue;
 
-        // A pause starts when the overlay opens, not on the raw value: after Restart
-        // from the pause menu the byte stays TopOverlay for a moment while the new
-        // attempt is already playing.
+        // After Restart from the pause menu the byte stays TopOverlay for a moment,
+        // so a pause only starts when the overlay opens
         private PauseMenuMode previousPauseMenuMode = PauseMenuMode.None;
 
-        // Arrangement and mode of the running song, taken at its start. In Nonstop Play
-        // the readout can move on to the next song before this one ends.
+        // Taken at the start of the run; in Nonstop Play the readout moves on before the end
         private string currentSongRunArrangementID = null;
         private string currentSongRunPath = null;
         private string currentSongRunTuning = null;
         private bool currentSongRunWasNonstopMode = false;
         private bool currentSongRunWasMultiplayerMode = false;
 
-        // Last readout taken during play, used for the end of the run. On Restart,
-        // Rocksmith resets the note data for the new attempt before the old one ends.
+        // For the end of the run: on Restart the note data resets before the old run ends
         private RSMemoryReadout lastInRunReadout = null;
 
-        // songID of the run that was started / ended. Several paths can try to start or
-        // end the same run; each run starts and ends once.
+        // Several paths can start or end the same run; these make each happen once
         private string songRunStartedForID = null;
         private string songRunEndedForID = null;
 
-        // A run whose timer never got past this was aborted before playback (e.g. no
-        // input detected). Also above the near-zero timer values seen while loading.
+        // Runs that never got past this were aborted before playback, e.g. no input detected
         private const float MIN_PROGRESS_SECONDS = 0.1f;
 
         private string lastGameStage = null;
@@ -281,10 +274,8 @@ namespace RockSnifferLib.Sniffing
 
                 newReadout.CopyTo(ref currentMemoryReadout);
 
-                // Only take snapshots while the timer moves forward. After a Restart the
-                // state can still read SONG_PAUSED while the new attempt's timer climbs
-                // from the start, and its reset note data must not replace the old
-                // attempt's. A resume also rewinds the timer a little.
+                // Only while the timer moves forward: after a Restart the state can still
+                // be SONG_PAUSED while the new attempt plays, and a resume rewinds a little
                 if ((currentState == SnifferState.SONG_STARTING ||
                      currentState == SnifferState.SONG_PLAYING ||
                      currentState == SnifferState.SONG_PAUSED ||
@@ -585,10 +576,6 @@ namespace RockSnifferLib.Sniffing
             fileSystemWatchers.Clear();
         }
 
-        /// <summary>
-        /// Starts a song run: resolves the arrangement, captures the run context and
-        /// fires OnSongStarted. Ignored if this run has already started.
-        /// </summary>
         private void BeginSongRun()
         {
             if (!CanBeginSongRun())
@@ -596,7 +583,7 @@ namespace RockSnifferLib.Sniffing
                 return;
             }
 
-            ArrangementDetails? arrangement = ResolveRunArrangement(out string? fallbackReason);
+            ArrangementDetails? arrangement = ResolveRunArrangement();
             CaptureSongRunStart(arrangement);
 
             OnSongStarted?.Invoke(this, new OnSongStartedArgs
@@ -610,7 +597,14 @@ namespace RockSnifferLib.Sniffing
                 wasMultiplayerMode = currentSongRunWasMultiplayerMode
             });
 
-            LogArrangementFallback(arrangement, fallbackReason);
+            if (arrangement == null)
+            {
+                Logger.LogError(
+                    "Could not resolve the arrangement for {0} (arrangementID '{1}', {2} arrangements), path and tuning will be 'unknown'",
+                    currentCDLCDetails.songID ?? "<unknown>",
+                    currentMemoryReadout.arrangementID ?? "<null>",
+                    currentCDLCDetails.arrangements?.Count ?? 0);
+            }
         }
 
         private bool CanBeginSongRun()
@@ -629,15 +623,8 @@ namespace RockSnifferLib.Sniffing
             return true;
         }
 
-        /// <summary>
-        /// Picks the arrangement being played. fallbackReason is null for a direct
-        /// arrangementID match and names the fallback otherwise. Returns null when
-        /// nothing can be picked unambiguously.
-        /// </summary>
-        private ArrangementDetails? ResolveRunArrangement(out string? fallbackReason)
+        private ArrangementDetails? ResolveRunArrangement()
         {
-            fallbackReason = null;
-
             var arrangements = currentCDLCDetails.arrangements;
             if (arrangements == null || arrangements.Count == 0)
             {
@@ -666,7 +653,6 @@ namespace RockSnifferLib.Sniffing
 
                 if (arrangement != null)
                 {
-                    fallbackReason = $"current Path {currentPath}";
                     return arrangement;
                 }
             }
@@ -674,13 +660,11 @@ namespace RockSnifferLib.Sniffing
             var playable = arrangements.Where(a => !a.isBonusArrangement && !a.isAlternateArrangement).ToList();
             if (playable.Count == 1)
             {
-                fallbackReason = "only playable arrangement";
                 return playable[0];
             }
 
             if (arrangements.Count == 1)
             {
-                fallbackReason = "only arrangement";
                 return arrangements[0];
             }
 
@@ -718,34 +702,7 @@ namespace RockSnifferLib.Sniffing
             lastInRunReadout = currentMemoryReadout?.Clone();
         }
 
-        private void LogArrangementFallback(ArrangementDetails? arrangement, string? fallbackReason)
-        {
-            if (arrangement == null)
-            {
-                int arrCount = currentCDLCDetails.arrangements?.Count ?? 0;
-                Logger.LogError(
-                    "Could not resolve the arrangement for {0} (arrangementID '{1}', {2} arrangements), path and tuning will be 'unknown'",
-                    currentCDLCDetails.songID ?? "<unknown>",
-                    currentMemoryReadout.arrangementID ?? "<null>",
-                    arrCount);
-            }
-            // In Nonstop Play the ID match routinely fails at song changes
-            else if (fallbackReason != null && !currentSongRunWasNonstopMode)
-            {
-                Logger.LogError(
-                    "Arrangement ID '{0}' not found, picked by {1}: path {2}, tuning {3}",
-                    currentMemoryReadout.arrangementID ?? "<null>",
-                    fallbackReason,
-                    currentSongRunPath,
-                    currentSongRunTuning);
-            }
-        }
-
-        /// <summary>
-        /// Completed flag for runs that end without passing through SONG_ENDING.
-        /// Counts as completed unless the song was failed, aborted before playback,
-        /// or quit from the pause menu.
-        /// </summary>
+        // For runs that end without passing through SONG_ENDING
         private bool DetermineCompletedForForceEnd()
         {
             // Score Attack fail, also on the last phrase
@@ -771,10 +728,6 @@ namespace RockSnifferLib.Sniffing
             return true;
         }
 
-        /// <summary>
-        /// Ends the running song run and fires OnSongEnded. Ignored if no run started
-        /// for the current song or the run has already ended.
-        /// </summary>
         private void EndSongRun(bool completed)
         {
             if (!CanEndSongRun())
@@ -931,8 +884,7 @@ namespace RockSnifferLib.Sniffing
                         EndSongRun(completed: false);
                         ResetRunTiming();
                     }
-                    // Overlay closed and the timer moved: resume, or a restart that the
-                    // branch above missed. A restart resets the note count, a resume doesn't.
+                    // Resume, or a restart the branch above missed: only a restart resets the note count
                     else if (!currentMemoryReadout.isPaused &&
                              currentMemoryReadout.songTimer > initTime &&
                              currentMemoryReadout.songTimer != pauseTimerSnapshot)
@@ -989,9 +941,7 @@ namespace RockSnifferLib.Sniffing
             }
         }
 
-        /// <summary>
-        /// In a song, or possibly: *_pause stays set after resuming
-        /// </summary>
+        // *_pause stays set after resuming
         private static bool IsPotentiallyPlayingGameStage(string gameStage)
         {
             switch (gameStage)
@@ -1008,9 +958,6 @@ namespace RockSnifferLib.Sniffing
             }
         }
 
-        /// <summary>
-        /// Known menu, tuner and song review stages. Unknown stages return false.
-        /// </summary>
         private static bool IsDefinitelyMenuGameStage(string gameStage)
         {
             switch (gameStage)
