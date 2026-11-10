@@ -77,14 +77,14 @@ namespace RockSnifferLib.RSHelpers
             // SONG TIMER
             ReadSongTimer(FollowPointers(MemoryOffsets.GetSongTimerPointer(edition)));
 
-            // GAME STAGE — must be resolved before ARRANGEMENT ID (the arrangement read
+            // GAME STAGE: must be resolved before ARRANGEMENT ID (the arrangement read
             // dispatches by gameStage). Static-address read; the buffer at module+0xF5F7C9
-            // (Remastered) is Rocksmith's canonical gameStage cell — see
+            // (Remastered) is Rocksmith's canonical gameStage cell - see
             // MemoryOffsets.GetCurrentMenuPointer.
             //
             // Length >= 4 guard filters transient sub-4-char writes during stage transitions.
             //
-            // KNOWN: gameStage does NOT update on pause→resume or pause→restart for any
+            // KNOWN: gameStage does NOT update on pause->resume or pause->restart for any
             // mode (engine behavior, not a reader bug). Consumers needing play/pause state
             // should use game_state (SnifferState).
             string game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(MemoryOffsets.GetCurrentMenuPointer(edition)));
@@ -99,10 +99,10 @@ namespace RockSnifferLib.RSHelpers
                 }
             }
 
-            // MODE — derived from gameStage (reliable across all states); see
+            // MODE: derived from gameStage (reliable across all states); see
             // DeriveModeFromGameStage for the mapping table.
             //
-            // SPECIAL CASE — bare "tuner": fires when the universal tuner is invoked from
+            // SPECIAL CASE: bare "tuner": fires when the universal tuner is invoked from
             // any parent context (pause menu, main menu, Session, ...), unlike the
             // mode-specific tuners (las_tuner, nsp_tuner, scoreattack_presongtuner,
             // getuner, pregametuner, guitarcade_tuner), which classify under their parent
@@ -114,7 +114,7 @@ namespace RockSnifferLib.RSHelpers
                 readout.mode = DeriveModeFromGameStage(readout.gameStage);
             }
 
-            // ARRANGEMENT ID — dispatch by gameStage. Two chains expose arrangement-id data:
+            // ARRANGEMENT ID: dispatch by gameStage. Two chains expose arrangement-id data:
             //
             //   PLAY_arrID chain (MemoryOffsets.GetPlayArrIDPointer): 16-byte raw GUID in
             //   Microsoft LE layout, converted via new Guid(bytes).ToString("N")
@@ -124,12 +124,12 @@ namespace RockSnifferLib.RSHelpers
             //   chain that populates.
             //
             //   arrangement_hash chain (legacy): 32-char ASCII hex string. Used for
-            //   sa_game / sa_pause (Score Attack has its own subsystem — PLAY_arrID does
+            //   sa_game / sa_pause (Score Attack has its own subsystem - PLAY_arrID does
             //   not track it) and all other gameStages, where it may return junk or stale
             //   values.
             //
             // FORMAT VALIDATION: IsValidArrangementHash rejects null/empty/wrong-length
-            // and non-hex — catches uninitialized-memory garbage (song titles, URN
+            // and non-hex - catches uninitialized-memory garbage (song titles, URN
             // fragments) and all-zero / unresolved PLAY_arrID reads (e.g. Nonstop carousel).
             //
             // CANDIDATE VALIDATION (Sniffer.cs cross-reference): nulls format-valid but
@@ -137,7 +137,7 @@ namespace RockSnifferLib.RSHelpers
             //
             // PERSISTENCE: readout.arrangementID persists across DoReadout calls until the
             // songID changes (reset at the top of DoReadout) or a fresh valid read
-            // overwrites it — a bad read retains the prior good value and retries next poll.
+            // overwrites it: a bad read retains the prior good value and retries next poll.
             bool usePlayArrIDChain = readout.gameStage == "las_game"
                                   || readout.gameStage == "las_pause"
                                   || readout.gameStage == "nonstopplaygame"
@@ -161,7 +161,7 @@ namespace RockSnifferLib.RSHelpers
                 readout.arrangementID = resolved_arrangement_id;
             }
 
-            // CURRENT PATH — the user's currently-selected Path (arrangement type) at the
+            // CURRENT PATH: the user's currently-selected Path (arrangement type) at the
             // menu level. 1-byte enum at a stable address, populated from launch (defaults
             // 0x01/Lead), mutated only when the user switches Path. Works in Nonstop Play,
             // where arrangement_hash fails. Mapping: 0x01=Lead, 0x02=Rhythm, 0x04=Bass,
@@ -183,15 +183,15 @@ namespace RockSnifferLib.RSHelpers
             }
             catch
             {
-                // Best-effort read — leave currentPath at its default value.
+                // Best-effort read - leave currentPath at its default value.
                 // This shouldn't happen in practice (pointer chain has been observed stable),
                 // but defensive coding keeps a transient memory hiccup from killing the poll.
             }
 
-            // PAUSE MENU MODE — direct read of the static byte at module+0xF5F5FC
+            // PAUSE MENU MODE: direct read of the static byte at module+0xF5F5FC
             // (Remastered): 0=no overlay, 1=sub-overlay (tuner-from-pause), 2=top-level
             // overlay (pause menu, Mixer, Tools). Cross-mode validated, survives relaunch
-            // as a true static. Used by Sniffer.UpdateState for flag-driven SONG_PLAYING ↔
+            // as a true static. Used by Sniffer.UpdateState for flag-driven SONG_PLAYING <->
             // SONG_PAUSED transitions. See MemoryOffsets.GetPauseMenuModePointer for the
             // full table and caveats.
             try
@@ -205,14 +205,14 @@ namespace RockSnifferLib.RSHelpers
                         0 => PauseMenuMode.None,
                         1 => PauseMenuMode.SubOverlay,
                         2 => PauseMenuMode.TopOverlay,
-                        _ => (PauseMenuMode)modeByte
+                        _ => PauseMenuMode.Unknown
                     };
-                    readout.isPaused = readout.pauseMenuMode != PauseMenuMode.None;
+                    readout.isPaused = readout.pauseMenuMode is PauseMenuMode.SubOverlay or PauseMenuMode.TopOverlay;
                 }
             }
             catch
             {
-                // Best-effort read — leave pauseMenuMode/isPaused at their default / prior values.
+                // Best-effort read - leave pauseMenuMode/isPaused at their default / prior values.
             }
 
             // NOTE DATA
@@ -232,7 +232,7 @@ namespace RockSnifferLib.RSHelpers
                 //Score attack
                 ReadScoreAttackNoteData(FollowPointers(MemoryOffsets.GetScoreAttackNoteDataPointer(edition)));
                 // No UNKNOWN fallback here: mode is derived from gameStage in DoReadout, and
-                // note-data dispatch only decides which struct shape to read — an UNKNOWN
+                // note-data dispatch only decides which struct shape to read - an UNKNOWN
                 // write would clobber a gameStage-derived menu mode.
             }
 
@@ -247,7 +247,7 @@ namespace RockSnifferLib.RSHelpers
             prevReadout.gameStage = readout.gameStage;
             prevReadout.songTimer = readout.songTimer;
 
-            // currentPath is a menu-level setting that's stable across all game states —
+            // currentPath is a menu-level setting that's stable across all game states:
             // always propagate, same as songID/gameStage. Without this, prevReadout would
             // only get the path during active gameplay (songTimer > 0), and consumers
             // querying `prevReadout.currentPath` while in song-select would see stale data.
@@ -256,7 +256,7 @@ namespace RockSnifferLib.RSHelpers
             // pauseMenuMode reflects engine overlay state and can flip on user input
             // (pause button) at any songTimer value, including songTimer == 0 during
             // loading. Propagate every poll regardless of songTimer, same rationale
-            // as currentPath above — otherwise consumers would see stale pause state
+            // as currentPath above; otherwise consumers would see stale pause state
             // during the brief window when pause is first registered.
             prevReadout.pauseMenuMode = readout.pauseMenuMode;
             prevReadout.isPaused = readout.isPaused;
@@ -337,7 +337,7 @@ namespace RockSnifferLib.RSHelpers
         ///     exact: getuner, pregametuner
         ///     prefix: ge_   (e.g. ge_techniquehub, ge_game, ge_pause)
         ///
-        ///   MULTIPLAYER  (classification tag only — full MP support is a separate
+        ///   MULTIPLAYER  (classification tag only - full MP support is a separate
         ///                 larger effort)
         ///     exact: split_game
         ///     prefix: mp_, duet_, h2h_
@@ -347,10 +347,10 @@ namespace RockSnifferLib.RSHelpers
         ///            shop, contentpanelchord, sidelist
         ///     prefix: tonedesigner
         ///
-        ///   UNKNOWN  — everything else (defensive default)
+        ///   UNKNOWN  (everything else, defensive default)
         ///
         /// Input is lowercased once at the top; match tables are lowercase. The bare
-        /// "tuner" stage is NOT handled here — DoReadout persists the prior mode for
+        /// "tuner" stage is NOT handled here - DoReadout persists the prior mode for
         /// it; if it reaches this method it falls through to UNKNOWN.
         /// </summary>
         private static RSMode DeriveModeFromGameStage(string gameStage)
@@ -500,7 +500,7 @@ namespace RockSnifferLib.RSHelpers
             }
             catch
             {
-                // Best-effort read — null return leaves readout.arrangementID at its
+                // Best-effort read - null return leaves readout.arrangementID at its
                 // prior value, next poll retries. Same defensive pattern as currentPath
                 // and pauseMenuMode reads above.
                 return null;

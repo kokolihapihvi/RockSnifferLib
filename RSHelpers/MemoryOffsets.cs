@@ -82,7 +82,7 @@ public static class MemoryOffsets
     /// Get the address of the current gameStage string for the given edition.
     /// </summary>
     /// <remarks>
-    /// Static .data-section buffer at Rocksmith2014.exe+0xF5F7C9 (Remastered) — the
+    /// Static .data-section buffer at Rocksmith2014.exe+0xF5F7C9 (Remastered) - the
     /// canonical cell Rocksmith's UI writes for the current stage. Tracks correctly
     /// across all observed states, including all three modes' pause stages and the
     /// SA song-select / song-options / tuner screens. Found via Cheat Engine
@@ -90,10 +90,10 @@ public static class MemoryOffsets
     /// transitions; stored as a literal string buffer ("main\0...", "las_songs\0...").
     ///
     /// Returned as (entryAddress, []) so the FollowPointers codepath handles it
-    /// uniformly — empty offsets means a direct read at base+entry.
+    /// uniformly: empty offsets means a direct read at base+entry.
     ///
     /// KNOWN ENGINE BEHAVIOR (not a reader bug, do not "correct" here): Rocksmith
-    /// does not update this cell on pause→resume or pause→restart for ANY mode; it
+    /// does not update this cell on pause->resume or pause->restart for ANY mode; it
     /// keeps reading "*_pause" until the user navigates to a menu or starts another
     /// song. Consumers needing play/pause state should use game_state (SnifferState).
     ///
@@ -103,7 +103,7 @@ public static class MemoryOffsets
     /// suspect this address first.
     /// </remarks>
     /// <param name="edition"></param>
-    /// <returns>A tuple of (entry address, pointer offsets) — offsets is empty
+    /// <returns>A tuple of (entry address, pointer offsets) - offsets is empty
     /// for a direct static read.</returns>
     /// <exception cref="ArgumentOutOfRangeException"></exception>
     public static (int entryAddress, int[] offsets) GetCurrentMenuPointer(RSEdition edition)
@@ -155,22 +155,22 @@ public static class MemoryOffsets
     /// Get the pointer to the current Path (arrangement type) byte for the given edition.
     /// </summary>
     /// <remarks>
-    /// 1-byte enum at a stable menu-level address — populated from launch (defaults
+    /// 1-byte enum at a stable menu-level address - populated from launch (defaults
     /// 1 = Lead), mutated only when the user switches Path in options or
     /// song-select, persistent through every gameStage. Encodes only the path type,
     /// so it is invariant to bonus/alternate arrangements. Works in Nonstop Play,
     /// where the arrangement_hash pointer does not populate.
     ///
-    /// Value mapping: 0x01 → Lead, 0x02 → Rhythm, 0x04 → Bass, else Unknown.
+    /// Value mapping: 0x01 -> Lead, 0x02 -> Rhythm, 0x04 -> Bass, else Unknown.
     /// </remarks>
     public static (int entryAddress, int[] offsets) GetCurrentPathPointer(RSEdition edition)
     {
         // CE table entry: Rocksmith2014.exe+00F5F570, offsets [0x1FC, 0x10] (CE display
-        // order — outermost first), read as Byte. Walk order (FollowPointers) is the
+        // order: outermost first), read as Byte. Walk order (FollowPointers) is the
         // reverse: [0x10, 0x1FC].
         //
         // Beta / LaP bases are back-derived via the standard +0x3080 / +0x4080 shifts;
-        // not independently verified — if those editions read 0x00 for Path with
+        // not independently verified - if those editions read 0x00 for Path with
         // otherwise-working behavior, suspect this address first.
         return edition switch
         {
@@ -188,13 +188,13 @@ public static class MemoryOffsets
     /// 1-byte static .data cell at module+0xF5F5FC (Remastered) encoding
     /// blocking-overlay depth:
     ///
-    ///     0 — no blocking overlay (gameplay, menus, song select, loading, review)
-    ///     1 — sub-overlay (tuner reached from the pause menu or the main menu's
+    ///     0: no blocking overlay (gameplay, menus, song select, loading, review)
+    ///     1: sub-overlay (tuner reached from the pause menu or the main menu's
     ///         Tools sub-menu, other sub-prompts)
-    ///     2 — top-level overlay (in-song pause menu, Mixer, restart confirmation,
+    ///     2: top-level overlay (in-song pause menu, Mixer, restart confirmation,
     ///         main menu's Tools overlay)
     ///
-    /// This is NOT "is the user paused during gameplay" — value 2 also fires for
+    /// This is NOT "is the user paused during gameplay" - value 2 also fires for
     /// the main menu's Tools overlay; "paused during a song" requires combining
     /// with a SnifferState check. Because 1 and 2 both mean "in a pause sub-flow,"
     /// the correct paused test is mode != 0, not mode == 2.
@@ -204,7 +204,7 @@ public static class MemoryOffsets
     /// inspection and a no-rescan relaunch test).
     ///
     /// EDITION SHIFTS (Beta / LaP): back-derived via the standard +0x3080 /
-    /// +0x4080 shifts; not independently verified — if those editions read
+    /// +0x4080 shifts; not independently verified - if those editions read
     /// constant zero across pause states, suspect this address first.
     ///
     /// Discovery credit: kokolihapihvi shared two named candidates from his RE
@@ -213,7 +213,7 @@ public static class MemoryOffsets
     /// directly to this find.
     /// </remarks>
     /// <param name="edition"></param>
-    /// <returns>A tuple of (entry address, pointer offsets) — offsets is empty
+    /// <returns>A tuple of (entry address, pointer offsets) - offsets is empty
     /// for a direct static read.</returns>
     /// <exception cref="ArgumentOutOfRangeException"></exception>
     public static (int entryAddress, int[] offsets) GetPauseMenuModePointer(RSEdition edition)
@@ -239,14 +239,14 @@ public static class MemoryOffsets
     /// comparison downstream).
     ///
     /// STATE COVERAGE:
-    ///   las_game / las_pause          ✓ currently-playing arrangement GUID
-    ///   nonstopplaygame / nsp_pause   ✓ the only chain that resolves arrangements
+    ///   las_game / las_pause          yes currently-playing arrangement GUID
+    ///   nonstopplaygame / nsp_pause   yes the only chain that resolves arrangements
     ///                                   in Nonstop (arrangement_hash never
     ///                                   populates there), incl. bonus/alternate
-    ///   Nonstop carousel / nsp_tuner  ✗ cell not valid until song-load proper
-    ///   sa_game / sa_pause            ✗ Score Attack has its own subsystem — keep
+    ///   Nonstop carousel / nsp_tuner  no cell not valid until song-load proper
+    ///   sa_game / sa_pause            no Score Attack has its own subsystem - keep
     ///                                   using arrangement_hash there
-    ///   Menus / transitions / review  ✗ not reliable
+    ///   Menus / transitions / review  no not reliable
     ///
     /// Populates when a song starts loading and stays valid through play and pause.
     /// In LaS its output is byte-for-byte identical to arrangement_hash
@@ -255,7 +255,7 @@ public static class MemoryOffsets
     /// cycles; tracks across songs and across arrangements within a song.
     ///
     /// EDITION SHIFTS (Beta / LaP): back-derived via the standard +0x3080 /
-    /// +0x4080 shifts; not independently verified — all-zero GUIDs across gameplay
+    /// +0x4080 shifts; not independently verified - all-zero GUIDs across gameplay
     /// states would point here first.
     /// </remarks>
     /// <param name="edition"></param>
@@ -264,8 +264,8 @@ public static class MemoryOffsets
     public static (int entryAddress, int[] offsets) GetPlayArrIDPointer(RSEdition edition)
     {
         // CE table entry: Rocksmith2014.exe+00F5F62C, offsets [0x20, 0x84, 0x4, 0x18, 0xB0]
-        // (CE display order — outermost first). Walk order (FollowPointers) is the
-        // REVERSE: [0xB0, 0x18, 0x4, 0x84, 0x20] — same convention as every other
+        // (CE display order: outermost first). Walk order (FollowPointers) is the
+        // REVERSE: [0xB0, 0x18, 0x4, 0x84, 0x20] - same convention as every other
         // multi-offset chain in this file.
         return edition switch
         {

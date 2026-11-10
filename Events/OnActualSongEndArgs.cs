@@ -20,7 +20,7 @@ namespace RockSnifferLib.Events
         // start in Sniffer.cs and preserved through end. Informational only.
         public bool wasNonstopMode;
         // True if the song was started in a Multiplayer gameStage. Captured at start
-        // and propagated through end so PlaythroughHistory can gate writes — multi-user
+        // and propagated through end so PlaythroughHistory can gate writes - multi-user
         // note data isn't tracked.
         public bool wasMultiplayerMode;
         // Snapshot of the memory readout at the moment of LogSongEnd. Allows the

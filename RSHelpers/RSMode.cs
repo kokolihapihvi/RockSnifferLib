@@ -8,7 +8,7 @@ namespace RockSnifferLib.RSHelpers
 {
     /// <summary>
     /// Classification of the user's current Rocksmith mode-context, derived from
-    /// gameStage (see RSMemoryReader.DeriveModeFromGameStage) — reliable across all
+    /// gameStage (see RSMemoryReader.DeriveModeFromGameStage) - reliable across all
     /// states including menus, song-select, song-review, transitions, and Nonstop
     /// Play. Integer values 0..3 are preserved for external consumers.
     /// </summary>

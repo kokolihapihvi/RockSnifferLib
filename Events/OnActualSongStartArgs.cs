@@ -16,7 +16,7 @@ namespace RockSnifferLib.Events
         public bool wasNonstopMode;
 
         // True if the song started in a Multiplayer gameStage (split_game, mp_*,
-        // duet_*, h2h_* — RSMode.MULTIPLAYER). Used to gate playthrough tracking —
+        // duet_*, h2h_* - RSMode.MULTIPLAYER). Used to gate playthrough tracking:
         // multi-user note data isn't tracked. See Sniffer.cs.
         public bool wasMultiplayerMode;
     }

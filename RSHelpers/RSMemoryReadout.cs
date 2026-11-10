@@ -28,15 +28,15 @@ namespace RockSnifferLib.RSHelpers
 
         /// <summary>
         /// Blocking-overlay state, serialized as the member name ("None",
-        /// "SubOverlay", "TopOverlay"). See the PauseMenuMode enum for the value
+        /// "SubOverlay", "TopOverlay", "Unknown"). See the PauseMenuMode enum for the value
         /// documentation and caveats.
         /// </summary>
         [JsonConverter(typeof(StringEnumConverter))]
         public PauseMenuMode pauseMenuMode = PauseMenuMode.None;
 
         /// <summary>
-        /// True when any blocking pause-style overlay is active (pauseMenuMode != 0).
-        /// Raw engine signal — for "paused during a song" use SnifferState (game_state),
+        /// True when pauseMenuMode is SubOverlay or TopOverlay.
+        /// Raw engine signal: for "paused during a song" use SnifferState (game_state),
         /// which interprets this flag against the player's state-machine context.
         /// </summary>
         public bool isPaused = false;

@@ -85,16 +85,16 @@ namespace RockSnifferLib.Sniffing
         /// <summary>
         /// Snapshot of songTimer at the moment SONG_PAUSED was entered. Distinguishes
         /// resume (timer moves) from Exit-from-pause (pauseMenuMode flips to 0 while
-        /// the timer stays frozen at the pause point) — without it, Exit produces a
-        /// spurious SONG_PAUSED → SONG_PLAYING flicker before the menu transition lands.
+        /// the timer stays frozen at the pause point) - without it, Exit produces a
+        /// spurious SONG_PAUSED -> SONG_PLAYING flicker before the menu transition lands.
         /// </summary>
         private float pauseTimerSnapshot = float.MinValue;
 
         /// <summary>
-        /// Previous poll's pauseMenuMode. Pause entry requires the None → non-None
-        /// TRANSITION, not the raw value — after Restart from the pause menu, Rocksmith
+        /// Previous poll's pauseMenuMode. Pause entry requires the None -> non-None
+        /// TRANSITION, not the raw value - after Restart from the pause menu, Rocksmith
         /// briefly keeps reading TopOverlay while the new song is already playing, which
-        /// would otherwise fire a false SONG_PLAYING → SONG_PAUSED. Captured each poll
+        /// would otherwise fire a false SONG_PLAYING -> SONG_PAUSED. Captured each poll
         /// before newReadout overwrites currentMemoryReadout.
         /// </summary>
         private PauseMenuMode previousPauseMenuMode = PauseMenuMode.None;
@@ -103,7 +103,7 @@ namespace RockSnifferLib.Sniffing
         // song, captured at LogSongStartIfPossible and preserved through LogSongEnd.
         // In Nonstop Play the songID can flip to the next song before the current
         // song's end fires, and the cross-reference then nulls
-        // currentMemoryReadout.arrangementID — reading from the readout at end-time
+        // currentMemoryReadout.arrangementID - reading from the readout at end-time
         // would lose the context.
         private string currentSongRunArrangementID = null;
         private string currentSongRunPath = null;
@@ -125,7 +125,7 @@ namespace RockSnifferLib.Sniffing
 
         // True if the current song run started in a Multiplayer gameStage (split_game,
         // mp_*, duet_*, h2h_*). PlaythroughHistory and the JS playthrough-tracker use
-        // it to skip writes — multi-user note data isn't tracked.
+        // it to skip writes: multi-user note data isn't tracked.
         private bool currentSongRunWasMultiplayerMode = false;
 
         // Fire-once guards: the natural state-machine path and the gameStage /
@@ -345,8 +345,8 @@ namespace RockSnifferLib.Sniffing
 
                 // Arrangement-ID cross-reference: the memory read can return a STALE but
                 // format-valid hash from the previous song after the songID has flipped
-                // (especially in Nonstop). Format validation can't catch it — the value is a
-                // real 32-char hex hash for the wrong song — so null arrangementID whenever it
+                // (especially in Nonstop). Format validation can't catch it - the value is a
+                // real 32-char hex hash for the wrong song - so null arrangementID whenever it
                 // matches no arrangement of the current song.
                 if (currentCDLCDetails != null && currentCDLCDetails.IsValid() &&
                     !string.IsNullOrEmpty(newReadout.arrangementID))
@@ -367,16 +367,16 @@ namespace RockSnifferLib.Sniffing
                 }
 
                 // Capture previous poll's pauseMenuMode BEFORE CopyTo overwrites
-                // currentMemoryReadout; pause entry requires a real 0 → non-zero transition.
+                // currentMemoryReadout; pause entry requires a real 0 -> non-zero transition.
                 previousPauseMenuMode = currentMemoryReadout?.pauseMenuMode ?? PauseMenuMode.None;
 
                 newReadout.CopyTo(ref currentMemoryReadout);
 
                 // Rolling in-run snapshot for END payloads (see lastInRunReadout docs).
                 // Two guards beyond the state check:
-                //   timer > 0 — the timer-reset poll that triggers a force-end must
+                //   timer > 0: the timer-reset poll that triggers a force-end must
                 //   not capture.
-                //   monotonic timer — after Restart-from-pause, gameStage/pauseMenuMode
+                //   monotonic timer: after Restart-from-pause, gameStage/pauseMenuMode
                 //   stickiness keeps the state reading SONG_PAUSED while the NEW
                 //   attempt's timer is already climbing; without this guard the new
                 //   attempt's zeroed noteData overwrites the old attempt's snapshot
@@ -413,7 +413,7 @@ namespace RockSnifferLib.Sniffing
                     lastObservedTimer = currentMemoryReadout.songTimer;
                 }
 
-                // Game-stage transition detection — primarily for Nonstop Play, where the
+                // Game-stage transition detection - primarily for Nonstop Play, where the
                 // timer-based state machine can park in SONG_ENDING between songs (it only
                 // naturally exits on songTimer == 0). gameStage is the direct signal of what
                 // Rocksmith is doing; the transitions below force-fire START / END where the
@@ -424,7 +424,7 @@ namespace RockSnifferLib.Sniffing
                     string prevStage = lastGameStage;
                     string newStage = currentGameStage;
 
-                    // nonstopplaygame → nonstopplayhub: current song just ended.
+                    // nonstopplaygame -> nonstopplayhub: current song just ended.
                     // Force-fire LogSongEnd if we have a started-but-not-ended song.
                     // Note: typically the songID-change force-end (above) catches this
                     // first; this is a backstop for when the gameStage transitions
@@ -447,7 +447,7 @@ namespace RockSnifferLib.Sniffing
                             paused = false;
                         }
                     }
-                    // nonstopplayhub → nonstopplaygame: new song is now playing; force-fire START.
+                    // nonstopplayhub -> nonstopplaygame: new song is now playing; force-fire START.
                     // initTime guard: songTimer briefly flashes nonzero during loading screens, so
                     // only fire once the timer has actually advanced past initTime.
                     else if (prevStage == "nonstopplayhub" && newStage == "nonstopplaygame")
@@ -731,25 +731,28 @@ namespace RockSnifferLib.Sniffing
                 return;
             }
 
-            // STEP 1: Direct arrangementID match — exact, best resolution.
+            // STEP 1: Direct arrangementID match - exact, best resolution.
             var arrangement = currentCDLCDetails.arrangements?
                 .FirstOrDefault(a => a.arrangementID == currentMemoryReadout.arrangementID);
 
             string fallbackReason = null;
 
             // STEP 2: Path filter. If the direct match failed, use the user's
-            // currently-selected Path (stable menu-level byte — see
+            // currently-selected Path (stable menu-level byte - see
             // MemoryOffsets.GetCurrentPathPointer; reliable from launch and valid in
             // Nonstop Play). Path only encodes the type (Lead/Rhythm/Bass), so filter
             // non-bonus/non-alternate first to disambiguate.
-            string currentPath = (currentMemoryReadout != null && currentMemoryReadout.currentPath != RSPath.Unknown)
-                ? currentMemoryReadout.currentPath.ToString() : null;
+            string currentPath = null;
+            if (currentMemoryReadout != null && currentMemoryReadout.currentPath != RSPath.Unknown)
+            {
+                currentPath = currentMemoryReadout.currentPath.ToString();
+            }
             if (arrangement == null && !string.IsNullOrEmpty(currentPath) &&
                 currentCDLCDetails.arrangements != null)
             {
                 var arrangements = currentCDLCDetails.arrangements;
 
-                // 2a: Prefer non-bonus, non-alternate — first match wins.
+                // 2a: Prefer non-bonus, non-alternate - first match wins.
                 foreach (var arr in arrangements)
                 {
                     if ((arr.type == currentPath || arr.name == currentPath) &&
@@ -761,7 +764,7 @@ namespace RockSnifferLib.Sniffing
                     }
                 }
 
-                // 2b: Bonus/alt allowed if no regular match — first match wins
+                // 2b: Bonus/alt allowed if no regular match - first match wins
                 if (arrangement == null)
                 {
                     foreach (var arr in arrangements)
@@ -793,7 +796,7 @@ namespace RockSnifferLib.Sniffing
                         {
                             singlePlayable = arr;
                             playableCount++;
-                            if (playableCount > 1) break; // can stop early — already ambiguous
+                            if (playableCount > 1) break; // can stop early - already ambiguous
                         }
                     }
 
@@ -815,14 +818,14 @@ namespace RockSnifferLib.Sniffing
 
             // Capture the Nonstop flag at song START (gameStage may transition by end).
             // Informational on event args; also suppresses the "Could not resolve
-            // arrangement" warning for Nonstop runs — see the warning site.
+            // arrangement" warning for Nonstop runs - see the warning site.
             string startGameStage = currentMemoryReadout?.gameStage;
             currentSongRunWasNonstopMode =
                 startGameStage == "nsp_main" ||
                 startGameStage == "nonstopplayhub" ||
                 startGameStage == "nonstopplaygame";
 
-            // Capture the Multiplayer flag at song START — PlaythroughHistory and the JS
+            // Capture the Multiplayer flag at song START - PlaythroughHistory and the JS
             // tracker use it to skip writes. Uses the gameStage-derived mode field (the
             // RSMode classifier already covers split_game / mp_* / duet_* / h2h_*).
             currentSongRunWasMultiplayerMode = currentMemoryReadout?.mode == RSMode.MULTIPLAYER;
@@ -856,7 +859,7 @@ namespace RockSnifferLib.Sniffing
                 tuning = "unknown";
                 int arrCount = currentCDLCDetails.arrangements?.Count ?? 0;
                 Logger.LogError(
-                    "Could not resolve arrangement at song start for song '{0}' (memory arrangementID was '{1}'). Song has {2} arrangements but none could be unambiguously selected — logging to history with path='unknown' / tuning='unknown'.",
+                    "Could not resolve arrangement at song start for song '{0}' (memory arrangementID was '{1}'). Song has {2} arrangements but none could be unambiguously selected; logging to history with path='unknown' / tuning='unknown'.",
                     currentCDLCDetails.songID ?? "<unknown>",
                     currentMemoryReadout.arrangementID ?? "<null>",
                     arrCount);
@@ -913,15 +916,15 @@ namespace RockSnifferLib.Sniffing
         }
 
         /// <summary>
-        /// Decides the completed flag for force-end paths (SONG_PLAYING→timer=0,
+        /// Decides the completed flag for force-end paths (SONG_PLAYING->timer=0,
         /// songID-change force-end, gameStage force-end). Returns true unless one
         /// of the three documented completed=false cases applies:
         ///   1. Pause-driven exit/restart/skip (currentState still SONG_PAUSED
-        ///      when force-end fires — UpdateState() hasn't run yet this poll).
+        ///      when force-end fires - UpdateState() hasn't run yet this poll).
         ///   2. No-input boot at song start (timer never advanced past the
         ///      MIN_PROGRESS_SECONDS floor; Rocksmith aborts before playback).
         ///   3. Score Attack 3-strike fail (FailedPhrases >= 3, regardless of
-        ///      how close maxTime got to songLength — last-phrase fails are
+        ///      how close maxTime got to songLength - last-phrase fails are
         ///      still fails).
         /// SA fail is checked FIRST so a last-phrase fail (where maxTime would
         /// otherwise look like a natural completion) still resolves to false.
@@ -1068,7 +1071,7 @@ namespace RockSnifferLib.Sniffing
             switch (currentState)
             {
                 case SnifferState.IN_MENUS:
-                    // Gate with gameStage: prevents spurious IN_MENUS → SONG_SELECTED progression
+                    // Gate with gameStage: prevents spurious IN_MENUS -> SONG_SELECTED progression
                     // when attaching to a running process, on Rocksmith restart, or when transient
                     // memory garbage briefly reads a non-zero songTimer in a menu state.
                     if (currentMemoryReadout.songTimer != 0 &&
@@ -1121,7 +1124,7 @@ namespace RockSnifferLib.Sniffing
                     }
 
                     // Timer hit 0 before the end: force-end. DetermineCompletedForForceEnd()
-                    // decides the completed flag — catches SA 3-strike fail, no-input boot, and a
+                    // decides the completed flag - catches SA 3-strike fail, no-input boot, and a
                     // natural completion whose SONG_ENDING window the poll missed.
                     if (currentMemoryReadout.songTimer == 0 &&
                         initTime != float.MaxValue)
@@ -1142,11 +1145,11 @@ namespace RockSnifferLib.Sniffing
                     }
 
                     // Pause entry: see the PauseMenuMode enum for the overlay-state values.
-                    // Detection requires the None → non-None TRANSITION — after Restart from
+                    // Detection requires the None -> non-None TRANSITION - after Restart from
                     // the pause menu the value briefly stays TopOverlay while the new song
                     // plays, and raw-value detection would fire a false pause.
                     if (previousPauseMenuMode == PauseMenuMode.None &&
-                        currentMemoryReadout.pauseMenuMode != PauseMenuMode.None &&
+                        currentMemoryReadout.isPaused &&
                         initTime != float.MaxValue &&
                         currentMemoryReadout.songTimer > initTime)
                     {
@@ -1194,7 +1197,7 @@ namespace RockSnifferLib.Sniffing
                         pauseTimerSnapshot = float.MinValue;
                         paused = false;
                     }
-                    // Pause exit: flag-driven — resume is recognized on the first poll where
+                    // Pause exit: flag-driven - resume is recognized on the first poll where
                     // pauseMenuMode returns to None AND songTimer has moved from the pause-entry
                     // snapshot. The timer guard matters: on Exit-from-pause the flag clears while
                     // the timer stays frozen, and without the guard that reads as a spurious
@@ -1297,18 +1300,18 @@ namespace RockSnifferLib.Sniffing
 
         // gameStage classification helpers
         //
-        // The startup transitions (IN_MENUS → SONG_SELECTED, and the SONG_STARTING →
+        // The startup transitions (IN_MENUS -> SONG_SELECTED, and the SONG_STARTING ->
         // IN_MENUS escape hatch) distinguish three categories of gameStage:
         //
-        //   1. "Potentially playing" — las_game, sa_game, nonstopplaygame, las_pause,
-        //      sa_pause, nsp_pause. The user IS in a song, or MIGHT be — *_pause is
+        //   1. "Potentially playing": las_game, sa_game, nonstopplaygame, las_pause,
+        //      sa_pause, nsp_pause. The user IS in a song, or MIGHT be - *_pause is
         //      sticky (Rocksmith only clears it on major stage transitions, not on
         //      resume from pause).
-        //   2. "Definitely menu" — mainmenu, gcpre, learnasong, scoreattack,
+        //   2. "Definitely menu": mainmenu, gcpre, learnasong, scoreattack,
         //      nonstopplay, nsp_main, *_songs, *_options, *_tuner, *_songreview,
         //      panel_*, shop, gc_*, gcade, ge_*, mp_*, sm_*. Clearly not actively
         //      playing (includes tuners and post-song review).
-        //   3. Unknown — treat as menu for entry guards (don't progress to
+        //   3. Unknown: treat as menu for entry guards (don't progress to
         //      SONG_SELECTED) but NOT for the SONG_STARTING escape (don't drop out on
         //      a possible uncatalogued song-start state).
         //
@@ -1316,9 +1319,9 @@ namespace RockSnifferLib.Sniffing
         // for unknown stages is to make no state-machine decision from them.
 
         /// <summary>
-        /// True if gameStage indicates the user is potentially in a song —
+        /// True if gameStage indicates the user is potentially in a song:
         /// either actively playing or in a sticky *_pause state.
-        /// Used to gate IN_MENUS → SONG_SELECTED transitions, preventing
+        /// Used to gate IN_MENUS -> SONG_SELECTED transitions, preventing
         /// spurious progression based on transient memory garbage during
         /// Rocksmith startup, RockSniffer attach, or any menu navigation
         /// where songTimer briefly reads non-zero.
@@ -1332,7 +1335,7 @@ namespace RockSnifferLib.Sniffing
                 case "sa_game":
                 case "nonstopplaygame":
                 // *_pause stages included because gameStage doesn't reset on
-                // resume — the user could be back in active gameplay with a
+                // resume: the user could be back in active gameplay with a
                 // stale *_pause reading lingering until song-end / menu-nav.
                 case "las_pause":
                 case "sa_pause":
@@ -1353,7 +1356,7 @@ namespace RockSnifferLib.Sniffing
         /// lingering from a prior song's pause that hasn't been cleared by a
         /// major Rocksmith stage transition yet.
         ///
-        /// Unknown stages return false (conservative default — better to stay
+        /// Unknown stages return false (conservative default - better to stay
         /// in SONG_STARTING and let the timer-based path resolve than to
         /// bail out on an unrecognized value).
         /// </summary>
@@ -1373,7 +1376,7 @@ namespace RockSnifferLib.Sniffing
                 case "las_songs":
                 case "las_options":
                 // Tuners (whether reached from a song-select menu or from a
-                // pause menu — both treated as "not actively playing")
+                // pause menu, both treated as "not actively playing")
                 case "las_tuner":
                 case "nsp_tuner":
                 // Song-end summary screens
