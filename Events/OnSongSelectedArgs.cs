@@ -1,4 +1,4 @@
-﻿using RockSnifferLib.Sniffing;
+using RockSnifferLib.Sniffing;
 using System;
 
 namespace RockSnifferLib.Events

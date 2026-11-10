@@ -1,4 +1,4 @@
-using Rocksmith2014PsarcLib.Psarc;
+﻿using Rocksmith2014PsarcLib.Psarc;
 using Rocksmith2014PsarcLib.Psarc.Asset;
 using Rocksmith2014PsarcLib.Psarc.Models.Json;
 using RockSnifferLib.Logging;
@@ -190,7 +190,7 @@ namespace RockSnifferLib.RSHelpers
 
 
                             //Get a list of all phraseIterations
-                            List<ArrangementDetails.PhraseIterationDetails> phraseIterations = [];
+                            List<ArrangementDetails.PhraseIterationDetails> phraseIterations =[];
                             Dictionary<string, int> phraseIterationCounts = [];
 
                             foreach (var phrI in arrangement.PhraseIterations)
@@ -218,7 +218,6 @@ namespace RockSnifferLib.RSHelpers
                             {
                                 name = arrangement.ArrangementName,
                                 arrangementID = arrangement_id,
-                                songOffset = arrangement.SongOffset,
                                 sections = sections,
                                 phraseIterations = phraseIterations,
                                 data = arrangementData,
@@ -226,19 +225,19 @@ namespace RockSnifferLib.RSHelpers
                                 isAlternateArrangement = (arrangement.ArrangementProperties.Represent == 0)
                             };
 
-                        //Determine path type
-                        if (arrangement.ArrangementProperties.PathLead == 1)
-                        {
-                            arrangementDetails.type = "Lead";
-                        }
-                        else if (arrangement.ArrangementProperties.PathRhythm == 1)
-                        {
-                            arrangementDetails.type = "Rhythm";
-                        }
-                        else if (arrangement.ArrangementProperties.PathBass == 1)
-                        {
-                            arrangementDetails.type = "Bass";
-                        }
+                            //Determine path type
+                            if (arrangement.ArrangementProperties.PathLead == 1)
+                            {
+                                arrangementDetails.type = "Lead";
+                            }
+                            else if (arrangement.ArrangementProperties.PathRhythm == 1)
+                            {
+                                arrangementDetails.type = "Rhythm";
+                            }
+                            else if (arrangement.ArrangementProperties.PathBass == 1)
+                            {
+                                arrangementDetails.type = "Bass";
+                            }
 
                             arrangementDetails.tuning = new ArrangementTuning(arrangement.Tuning, (int)arrangement.CentOffset, (int)arrangement.CapoFret);
                             arrangementDetails.tuning.IsBass = (arrangementDetails.type == "Bass");

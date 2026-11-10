@@ -1,4 +1,4 @@
-using Rocksmith2014PsarcLib.Psarc.Models.Json;
+﻿using Rocksmith2014PsarcLib.Psarc.Models.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -141,8 +141,7 @@ namespace RockSnifferLib.Sniffing
         private static readonly string[] NoteNames = { "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B" };
 
         /// <summary>
-        /// Build a raw note-name string from the per-string offsets (e.g. "DbADG" for bass, "DbADGBE" for guitar).
-        /// Uses IsBass to determine whether to emit 4 or 6 strings.
+        /// Note names per string, e.g. "DbADG" for bass or "DbADGBE" for guitar.
         /// </summary>
         private string GetRawTuningName()
         {
@@ -151,10 +150,7 @@ namespace RockSnifferLib.Sniffing
             var sb = new System.Text.StringBuilder();
             for (int i = 0; i < stringCount; i++)
             {
-                // Canonical positive modulus: C#'s % is a signed remainder, and CDLC
-                // metadata offsets can push (base + offset) below -12 (the tuning
-                // dictionary above itself contains -14), which would make the
-                // single-mod form a negative index into NoteNames.
+                // Double modulo: C# % keeps the sign, and offsets can go below -12
                 int semitone = ((StandardBase[i] + offsets[i]) % 12 + 12) % 12;
                 sb.Append(NoteNames[semitone]);
             }
@@ -167,12 +163,11 @@ namespace RockSnifferLib.Sniffing
             {
                 string name = null;
 
-                //Find the tuning name in the dictionary (exact 6-string match)
+                //Find the tuning name in the dictionary
                 KeyValuePair<string, ArrangementTuning> tuningNamePair = _TuningNames.FirstOrDefault(kvp => kvp.Value.Equals(this));
                 if (!tuningNamePair.Equals(default(KeyValuePair<string, ArrangementTuning>)))
                     name = tuningNamePair.Key;
 
-                // If no dictionary match, fall back to raw per-string note names
                 if (name == null)
                     name = GetRawTuningName();
                 else

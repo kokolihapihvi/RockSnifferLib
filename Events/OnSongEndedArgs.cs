@@ -11,16 +11,15 @@ namespace RockSnifferLib.Events
         public bool completed;
         public bool paused;
 
-        // Same values as the run's OnSongStarted. Kept from the start because in
-        // Nonstop Play the live readout can already point at the next song.
+        // Copied from the start of the run; in Nonstop Play the live readout may
+        // already be on the next song.
         public string arrangementID;
         public string path;
         public string tuning;
         public bool wasNonstopMode;
         public bool wasMultiplayerMode;
 
-        // Last readout of the run. On a restart the live readout is already zeroed
-        // for the next attempt, so read end-of-run stats from here.
+        // Last readout of the run; on a restart the live one is already reset
         public RSMemoryReadout readout;
     }
 }

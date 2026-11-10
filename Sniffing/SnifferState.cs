@@ -16,12 +16,12 @@
         IN_MENUS,
 
         /// <summary>
-        /// A song has been selected
+        /// Song has been selected
         /// </summary>
         SONG_SELECTED,
 
         /// <summary>
-        /// Song is starting
+        /// Song timer is starting
         /// </summary>
         SONG_STARTING,
 

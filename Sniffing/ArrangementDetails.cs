@@ -1,4 +1,4 @@
-using RockSnifferLib.RSHelpers;
+﻿using RockSnifferLib.RSHelpers;
 using System;
 using System.Collections.Generic;
 
@@ -26,7 +26,6 @@ namespace RockSnifferLib.Sniffing
         public string name;
         public string arrangementID;
         public string type;
-        public float songOffset;
         public bool isBonusArrangement;
         public bool isAlternateArrangement;
         public ArrangementTuning tuning;
