@@ -1,4 +1,4 @@
-using RockSnifferLib.Cache;
+﻿using RockSnifferLib.Cache;
 using RockSnifferLib.Configuration;
 using RockSnifferLib.Events;
 using RockSnifferLib.Logging;
@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
@@ -30,17 +29,21 @@ namespace RockSnifferLib.Sniffing
         /// <summary>
         /// Fired after each successful memory readout
         /// </summary>
-        public event EventHandler<OnActualSongStartArgs> OnActualSongStart;
-        public event EventHandler<OnActualSongEndArgs> OnActualSongEnd;
         public event EventHandler<OnMemoryReadoutArgs> OnMemoryReadout;
 
         /// <summary>
-        /// Fired when a song starts
+        /// Fired when a selected song starts loading, before gameplay begins
+        /// </summary>
+        public event EventHandler<OnSongSelectedArgs> OnSongSelected;
+
+        /// <summary>
+        /// Fired once per run when gameplay starts
         /// </summary>
         public event EventHandler<OnSongStartedArgs> OnSongStarted;
 
         /// <summary>
-        /// Fired when a song ends
+        /// Fired once per run when gameplay ends: completed, quit, restarted, or
+        /// replaced by the next song in Nonstop Play
         /// </summary>
         public event EventHandler<OnSongEndedArgs> OnSongEnded;
 
@@ -100,7 +103,7 @@ namespace RockSnifferLib.Sniffing
         private PauseMenuMode previousPauseMenuMode = PauseMenuMode.None;
 
         // SONG-RUN CONTEXT: the arrangement context (ID, path, tuning) of the running
-        // song, captured at LogSongStartIfPossible and preserved through LogSongEnd.
+        // song, captured at BeginSongRun and preserved through EndSongRun.
         // In Nonstop Play the songID can flip to the next song before the current
         // song's end fires, and the cross-reference then nulls
         // currentMemoryReadout.arrangementID - reading from the readout at end-time
@@ -129,11 +132,11 @@ namespace RockSnifferLib.Sniffing
         private bool currentSongRunWasMultiplayerMode = false;
 
         // Fire-once guards: the natural state-machine path and the gameStage /
-        // songID-change escape hatches may BOTH try to fire START / END; these track
-        // the songID last fired for, so each event fires at most once per song run.
+        // songID-change escape hatches may BOTH try to begin or end a run; these track
+        // the songID last handled, so each run starts and ends at most once.
         // Reset on songID change so a replay produces a new start/end pair.
-        private string lastLogStartedForSongID = null;
-        private string lastLogEndedForSongID = null;
+        private string songRunStartedForID = null;
+        private string songRunEndedForID = null;
 
         // Floor for case-2 (no-input-boot) detection. Rocksmith's no-input
         // abort only fires before the timer advances meaningfully; once
@@ -257,12 +260,7 @@ namespace RockSnifferLib.Sniffing
             if (oldState is SnifferState.IN_MENUS or SnifferState.SONG_SELECTED &&
                 newState is SnifferState.SONG_STARTING or SnifferState.SONG_PLAYING)
             {
-                OnSongStarted?.Invoke(this, new OnSongStartedArgs { song = currentCDLCDetails });
-            }
-            else if (newState == SnifferState.IN_MENUS &&
-                oldState != SnifferState.NONE)
-            {
-                OnSongEnded?.Invoke(this, new OnSongEndedArgs { song = currentCDLCDetails, completed = completed, paused = paused });
+                OnSongSelected?.Invoke(this, new OnSongSelectedArgs { song = currentCDLCDetails });
             }
         }
 
@@ -299,11 +297,11 @@ namespace RockSnifferLib.Sniffing
                     // Nonstop Play, where the timer-based state machine can park in SONG_ENDING
                     // and never naturally end.
                     if (currentCDLCDetails != null && currentCDLCDetails.IsValid() &&
-                        lastLogStartedForSongID != null &&
-                        lastLogStartedForSongID == currentCDLCDetails.songID &&
-                        lastLogEndedForSongID != currentCDLCDetails.songID)
+                        songRunStartedForID != null &&
+                        songRunStartedForID == currentCDLCDetails.songID &&
+                        songRunEndedForID != currentCDLCDetails.songID)
                     {
-                        LogSongEnd(DetermineCompletedForForceEnd());
+                        EndSongRun(DetermineCompletedForForceEnd());
 
                         // Reset state machine and timing for the upcoming new song
                         currentState = SnifferState.IN_MENUS;
@@ -337,8 +335,8 @@ namespace RockSnifferLib.Sniffing
                         currentSongRunTuning = null;
                         currentSongRunWasNonstopMode = false;
                         currentSongRunWasMultiplayerMode = false;
-                        lastLogStartedForSongID = null;
-                        lastLogEndedForSongID = null;
+                        songRunStartedForID = null;
+                        songRunEndedForID = null;
                     }
 
                 }
@@ -425,18 +423,18 @@ namespace RockSnifferLib.Sniffing
                     string newStage = currentGameStage;
 
                     // nonstopplaygame -> nonstopplayhub: current song just ended.
-                    // Force-fire LogSongEnd if we have a started-but-not-ended song.
+                    // End the run if it started but hasn't ended.
                     // Note: typically the songID-change force-end (above) catches this
                     // first; this is a backstop for when the gameStage transitions
                     // before the songID changes.
                     if (prevStage == "nonstopplaygame" && newStage == "nonstopplayhub")
                     {
                         if (currentCDLCDetails != null && currentCDLCDetails.IsValid() &&
-                            lastLogStartedForSongID != null &&
-                            lastLogStartedForSongID == currentCDLCDetails.songID &&
-                            lastLogEndedForSongID != currentCDLCDetails.songID)
+                            songRunStartedForID != null &&
+                            songRunStartedForID == currentCDLCDetails.songID &&
+                            songRunEndedForID != currentCDLCDetails.songID)
                         {
-                            LogSongEnd(DetermineCompletedForForceEnd());
+                            EndSongRun(DetermineCompletedForForceEnd());
 
                             currentState = SnifferState.IN_MENUS;
                             lowTime = float.MaxValue;
@@ -447,17 +445,17 @@ namespace RockSnifferLib.Sniffing
                             paused = false;
                         }
                     }
-                    // nonstopplayhub -> nonstopplaygame: new song is now playing; force-fire START.
+                    // nonstopplayhub -> nonstopplaygame: new song is now playing; begin the run.
                     // initTime guard: songTimer briefly flashes nonzero during loading screens, so
                     // only fire once the timer has actually advanced past initTime.
                     else if (prevStage == "nonstopplayhub" && newStage == "nonstopplaygame")
                     {
                         if (currentCDLCDetails != null && currentCDLCDetails.IsValid() &&
-                            lastLogStartedForSongID != currentCDLCDetails.songID &&
+                            songRunStartedForID != currentCDLCDetails.songID &&
                             initTime != float.MaxValue &&
                             currentMemoryReadout.songTimer > initTime)
                         {
-                            LogSongStartIfPossible();
+                            BeginSongRun();
                             // We're definitely in-game now; advance state machine accordingly.
                             currentState = SnifferState.SONG_PLAYING;
                         }
@@ -712,30 +710,63 @@ namespace RockSnifferLib.Sniffing
         }
 
         /// <summary>
-        /// Update the state of the sniffer
+        /// Starts a song run: resolves the arrangement, captures the run context and
+        /// fires OnSongStarted. Ignored if this run has already started.
         /// </summary>
-        /// 
-        private void LogSongStartIfPossible()
+        private void BeginSongRun()
+        {
+            if (!CanBeginSongRun())
+            {
+                return;
+            }
+
+            ArrangementDetails? arrangement = ResolveRunArrangement(out string? fallbackReason);
+            CaptureSongRunStart(arrangement);
+
+            OnSongStarted?.Invoke(this, new OnSongStartedArgs
+            {
+                song = currentCDLCDetails,
+                timestamp = DateTime.Now,
+                arrangementID = currentSongRunArrangementID,
+                path = currentSongRunPath,
+                tuning = currentSongRunTuning,
+                wasNonstopMode = currentSongRunWasNonstopMode,
+                wasMultiplayerMode = currentSongRunWasMultiplayerMode
+            });
+
+            LogArrangementFallback(arrangement, fallbackReason);
+        }
+
+        private bool CanBeginSongRun()
         {
             if (currentCDLCDetails == null || !currentCDLCDetails.IsValid())
             {
-                return;
+                return false;
             }
 
-            // Fire-once guard: don't log start twice for the same song run.
-            // Important when both the natural state machine AND the gameStage-transition
-            // escape hatch try to fire start for the same song.
-            if (lastLogStartedForSongID != null &&
-                lastLogStartedForSongID == currentCDLCDetails.songID)
+            // The state machine and the gameStage escape hatch can both try to begin
+            // the same run; only the first one counts.
+            if (songRunStartedForID != null &&
+                songRunStartedForID == currentCDLCDetails.songID)
             {
-                return;
+                return false;
             }
 
+            return true;
+        }
+
+        /// <summary>
+        /// Picks the arrangement being played. fallbackReason is null for a direct
+        /// arrangementID match and names the heuristic otherwise. Returns null when
+        /// nothing can be picked unambiguously.
+        /// </summary>
+        private ArrangementDetails? ResolveRunArrangement(out string? fallbackReason)
+        {
             // STEP 1: Direct arrangementID match - exact, best resolution.
             var arrangement = currentCDLCDetails.arrangements?
                 .FirstOrDefault(a => a.arrangementID == currentMemoryReadout.arrangementID);
 
-            string fallbackReason = null;
+            fallbackReason = null;
 
             // STEP 2: Path filter. If the direct match failed, use the user's
             // currently-selected Path (stable menu-level byte - see
@@ -815,48 +846,50 @@ namespace RockSnifferLib.Sniffing
                 }
             }
 
+            return arrangement;
+        }
 
-            // Capture the Nonstop flag at song START (gameStage may transition by end).
-            // Informational on event args; also suppresses the "Could not resolve
-            // arrangement" warning for Nonstop runs - see the warning site.
+        private void CaptureSongRunStart(ArrangementDetails? arrangement)
+        {
+            // Mode flags are taken at the start because gameStage may have moved on by
+            // the end of the run.
             string startGameStage = currentMemoryReadout?.gameStage;
             currentSongRunWasNonstopMode =
                 startGameStage == "nsp_main" ||
                 startGameStage == "nonstopplayhub" ||
                 startGameStage == "nonstopplaygame";
-
-            // Capture the Multiplayer flag at song START - PlaythroughHistory and the JS
-            // tracker use it to skip writes. Uses the gameStage-derived mode field (the
-            // RSMode classifier already covers split_game / mp_* / duet_* / h2h_*).
             currentSongRunWasMultiplayerMode = currentMemoryReadout?.mode == RSMode.MULTIPLAYER;
 
-            string path;
-            string tuning;
-
+            // Kept for EndSongRun: in Nonstop Play the readout's arrangementID can be
+            // cleared before the run ends.
             if (arrangement != null)
             {
-                path = arrangement.type;
-                tuning = arrangement.tuning.TuningName;
-
-                if (fallbackReason != null && !currentSongRunWasNonstopMode)
-                {
-                    // Suppress the warning for Nonstop runs: brief transients during song-to-song
-                    // transitions can momentarily fail resolution and fall back to Path; logging
-                    // those as errors would be noise on every Nonstop song.
-                    Logger.LogError(
-                        "Could not resolve arrangement at song start (memory arrangementID was '{0}'). Used fallback ({1}) and chose path='{2}', tuning='{3}'. Song will be logged to history with these values.",
-                        currentMemoryReadout.arrangementID ?? "<null>",
-                        fallbackReason,
-                        path,
-                        tuning);
-                }
+                currentSongRunArrangementID = arrangement.arrangementID;
+                currentSongRunPath = arrangement.type;
+                currentSongRunTuning = arrangement.tuning.TuningName;
             }
             else
             {
-                // No usable arrangement and the heuristic couldn't disambiguate.
-                // Log the song anyway with explicit "unknown" markers so the row isn't silently dropped.
-                path = "unknown";
-                tuning = "unknown";
+                currentSongRunArrangementID = null;
+                currentSongRunPath = "unknown";
+                currentSongRunTuning = "unknown";
+            }
+
+            songRunStartedForID = currentCDLCDetails.songID;
+
+            // A replay of the same song keeps its songID, so the end guard from the
+            // previous run has to be cleared here or the new run could never end.
+            songRunEndedForID = null;
+
+            // Baseline the in-run snapshot so an instantly abandoned run can't end with
+            // the previous song's stats.
+            lastInRunReadout = currentMemoryReadout?.Clone();
+        }
+
+        private void LogArrangementFallback(ArrangementDetails? arrangement, string? fallbackReason)
+        {
+            if (arrangement == null)
+            {
                 int arrCount = currentCDLCDetails.arrangements?.Count ?? 0;
                 Logger.LogError(
                     "Could not resolve arrangement at song start for song '{0}' (memory arrangementID was '{1}'). Song has {2} arrangements but none could be unambiguously selected; logging to history with path='unknown' / tuning='unknown'.",
@@ -864,55 +897,17 @@ namespace RockSnifferLib.Sniffing
                     currentMemoryReadout.arrangementID ?? "<null>",
                     arrCount);
             }
-
-            Logger.Log(
-                $"EVENT=START;" +
-                $"artist={currentCDLCDetails.artistName};" +
-                $"album={currentCDLCDetails.albumName};" +
-                $"year={currentCDLCDetails.albumYear};" +
-                $"song={currentCDLCDetails.songName};" +
-                $"length={currentCDLCDetails.songLength};" +
-                $"path={path};" +
-                $"tuning={tuning};" +
-                $"author={(currentCDLCDetails.toolkit?.author ?? "").Trim()};"
-            );
-
-            // Capture song-run context so end-of-song logging can recover even if
-            // currentMemoryReadout.arrangementID is later cleared (Nonstop transition).
-            string resolvedArrangementID = arrangement?.arrangementID;
-            currentSongRunArrangementID = resolvedArrangementID;
-            currentSongRunPath = path;
-            currentSongRunTuning = tuning;
-
-            // Note: currentSongRunWasNonstopMode and startGameStage were already
-            // computed above (before the warning block) so the warning could
-            // suppress itself in Nonstop. No need to recompute here.
-
-            // Fire-once guard: this songID's start is now logged.
-            lastLogStartedForSongID = currentCDLCDetails.songID;
-
-            // Baseline the in-run snapshot at run start so END can't inherit a
-            // previous song's data if this run is abandoned before any capture.
-            lastInRunReadout = currentMemoryReadout?.Clone();
-
-            // Reset the END guard (cleared from any previous run of THIS or any other song).
-            // Without this clear, if the user replays the same song (songID unchanged), the
-            // LogSongEnd fire-once check would see lastLogEndedForSongID == currentCDLCDetails.songID
-            // from the previous run and silently skip the new run's end-event firing.
-            lastLogEndedForSongID = null;
-
-            // Fire event with actual gameplay start timestamp
-            var actualStartTimestamp = DateTime.Now;
-            OnActualSongStart?.Invoke(this, new OnActualSongStartArgs
+            // Nonstop song-to-song transitions briefly fail the direct match on every
+            // song, so a fallback there is expected and not worth an error line.
+            else if (fallbackReason != null && !currentSongRunWasNonstopMode)
             {
-                song = currentCDLCDetails,
-                timestamp = actualStartTimestamp,
-                arrangementID = resolvedArrangementID,
-                path = path,
-                tuning = tuning,
-                wasNonstopMode = currentSongRunWasNonstopMode,
-                wasMultiplayerMode = currentSongRunWasMultiplayerMode
-            });
+                Logger.LogError(
+                    "Could not resolve arrangement at song start (memory arrangementID was '{0}'). Used fallback ({1}) and chose path='{2}', tuning='{3}'. Song will be logged to history with these values.",
+                    currentMemoryReadout.arrangementID ?? "<null>",
+                    fallbackReason,
+                    currentSongRunPath,
+                    currentSongRunTuning);
+            }
         }
 
         /// <summary>
@@ -960,84 +955,62 @@ namespace RockSnifferLib.Sniffing
             return true;
         }
 
-        private void LogSongEnd(bool completed)
+        /// <summary>
+        /// Ends the running song run and fires OnSongEnded. Ignored if no run started
+        /// for the current song or the run has already ended.
+        /// </summary>
+        private void EndSongRun(bool completed)
+        {
+            if (!CanEndSongRun())
+            {
+                return;
+            }
+
+            OnSongEndedArgs args = CaptureSongRunEnd(completed);
+
+            // Marked before firing so an end trigger raised from a handler is ignored.
+            songRunEndedForID = args.song.songID;
+            OnSongEnded?.Invoke(this, args);
+
+            ResetSongRun();
+        }
+
+        private bool CanEndSongRun()
         {
             if (currentCDLCDetails == null || !currentCDLCDetails.IsValid())
             {
-                return;
+                return false;
             }
 
-            // Don't fire end if start wasn't fired for this song run (e.g. user
-            // quit during the deferral window before LogSongStart succeeded).
-            // Without this guard, end events without paired start events could
-            // produce orphan rows in playthrough_history.
-            if (lastLogStartedForSongID != currentCDLCDetails.songID)
+            // No start for this run (e.g. quit before the timer advanced): an end on
+            // its own would write an orphan history row.
+            if (songRunStartedForID != currentCDLCDetails.songID)
             {
-                return;
+                return false;
             }
 
-            // Fire-once guard: don't log end twice for the same song run.
-            // Important when both the natural state machine AND the songID-change /
-            // gameStage-transition escape hatches try to fire end for the same song.
-            if (lastLogEndedForSongID != null &&
-                lastLogEndedForSongID == currentCDLCDetails.songID)
+            // The state machine and the songID / gameStage force-end paths can all try
+            // to end the same run.
+            if (songRunEndedForID != null &&
+                songRunEndedForID == currentCDLCDetails.songID)
             {
-                return;
+                return false;
             }
 
-            // Snapshot the song details and readout NOW, so any later updates to
-            // currentCDLCDetails / currentMemoryReadout don't bleed into the event payload.
-            var snapshotSong = currentCDLCDetails;
-            // Prefer the rolling in-run snapshot: for natural completions its last
-            // update IS the final state, and for force-ends (restart, songID flip,
-            // gameStage) it holds the ended attempt's last real values rather than
-            // whatever the memory reads after Rocksmith has already reset for the
-            // next attempt.
-            var snapshotReadout = (lastInRunReadout ?? currentMemoryReadout)?.Clone();
-            var noteData = snapshotReadout?.noteData ?? currentMemoryReadout.noteData;
+            return true;
+        }
 
-            // Build base log message
-            StringBuilder logMessage = new StringBuilder();
-            logMessage.Append($"EVENT=END;");
-            logMessage.Append($"completed={completed};");
-            logMessage.Append($"paused={paused};");
-            logMessage.Append($"accuracy={Math.Round(noteData.Accuracy, 1)}%;");
-            logMessage.Append($"totalNotes={noteData.TotalNotes};");
-            logMessage.Append($"notesHit={noteData.TotalNotesHit};");
-            logMessage.Append($"highestStreak={noteData.HighestHitStreak};");
+        private OnSongEndedArgs CaptureSongRunEnd(bool completed)
+        {
+            // The rolling in-run snapshot is the run's final state for natural ends, and
+            // for force-ends it still holds the ended attempt's values after Rocksmith
+            // has reset memory for the next one.
+            RSMemoryReadout readout = (lastInRunReadout ?? currentMemoryReadout)?.Clone();
 
-            // Add Score Attack specific stats if in Score Attack mode
-            if (snapshotReadout != null && snapshotReadout.mode == RSMode.SCOREATTACK && noteData is ScoreAttackNoteData saData)
+            return new OnSongEndedArgs
             {
-                logMessage.Append($"Mode=true;");
-                logMessage.Append($"TotalPerfectHits={saData.TotalPerfectHits};");
-                logMessage.Append($"PerfectPhrases={saData.PerfectPhrases};");
-                logMessage.Append($"GoodPhrases={saData.GoodPhrases};");
-                logMessage.Append($"PassedPhrases={saData.PassedPhrases};");
-                logMessage.Append($"FailedPhrases={saData.FailedPhrases};");
-                logMessage.Append($"HighestPerfectPhraseStreak={saData.HighestPerfectPhraseStreak};");
-                logMessage.Append($"HighestGoodPhraseStreak={saData.HighestGoodPhraseStreak};");
-                logMessage.Append($"HighestPassedPhraseStreak={saData.HighestPassedPhraseStreak};");
-                logMessage.Append($"HighestFailedPhraseStreak={saData.HighestFailedPhraseStreak};");
-                logMessage.Append($"CurrentScore={saData.CurrentScore};");
-                logMessage.Append($"HighestMultiplier={saData.HighestMultiplier};");
-            }
-
-            Logger.Log(logMessage.ToString());
-
-            // Mark this song's end as fired BEFORE invoking OnActualSongEnd
-            // so re-entrant handlers (defensive) see the fire-once state.
-            lastLogEndedForSongID = snapshotSong.songID;
-
-            // Fire event with actual gameplay end timestamp.
-            // Pass the song-run arrangement context (preserved from LogSongStart) and the
-            // readout snapshot, so PlaythroughHistory can write the correct values even
-            // if currentMemoryReadout / currentCDLCDetails have advanced to the next song.
-            var actualEndTimestamp = DateTime.Now;
-            OnActualSongEnd?.Invoke(this, new OnActualSongEndArgs
-            {
-                song = snapshotSong,
-                timestamp = actualEndTimestamp,
+                song = currentCDLCDetails,
+                timestamp = DateTime.Now,
                 completed = completed,
                 paused = paused,
                 arrangementID = currentSongRunArrangementID,
@@ -1045,16 +1018,16 @@ namespace RockSnifferLib.Sniffing
                 tuning = currentSongRunTuning,
                 wasNonstopMode = currentSongRunWasNonstopMode,
                 wasMultiplayerMode = currentSongRunWasMultiplayerMode,
-                readout = snapshotReadout
-            });
+                readout = readout
+            };
+        }
 
-            // Reset song-run state so a replay of the SAME song (songID unchanged: restart,
-            // exit-and-replay, finish-and-replay) can fire start/end again as a NEW run.
-            // We keep lastLogEndedForSongID set so any duplicate end-trigger paths in this
-            // same poll cycle (e.g. songID-change AND gameStage-transition both trying to
-            // force-end) get blocked; lastLogEndedForSongID is cleared on the next
-            // successful LogSongStart.
-            lastLogStartedForSongID = null;
+        private void ResetSongRun()
+        {
+            // Clearing the start guard lets a replay of the same songID begin a new run.
+            // The end guard stays set until the next CaptureSongRunStart so a second end
+            // trigger in the same poll is still blocked.
+            songRunStartedForID = null;
             currentSongRunArrangementID = null;
             currentSongRunPath = null;
             currentSongRunTuning = null;
@@ -1093,7 +1066,7 @@ namespace RockSnifferLib.Sniffing
                         currentMemoryReadout.songTimer > initTime)
                     {
                         currentState = SnifferState.SONG_PLAYING;
-                        LogSongStartIfPossible();
+                        BeginSongRun();
                     }
                     break;
 
@@ -1102,7 +1075,7 @@ namespace RockSnifferLib.Sniffing
                         currentMemoryReadout.songTimer > initTime)
                     {
                         currentState = SnifferState.SONG_PLAYING;
-                        LogSongStartIfPossible();
+                        BeginSongRun();
                     }
                     // Escape hatch: the user backed out of song-start before the timer advanced
                     // past initTime (e.g. Esc during loading). SONG_STARTING's only other exit is
@@ -1131,7 +1104,7 @@ namespace RockSnifferLib.Sniffing
                     {
                         completed = DetermineCompletedForForceEnd();
 
-                        LogSongEnd(completed: completed);
+                        EndSongRun(completed: completed);
                         currentState = SnifferState.IN_MENUS;
 
                         // Reset pause tracking for next run
@@ -1187,7 +1160,7 @@ namespace RockSnifferLib.Sniffing
                         // Not a full completion
                         completed = false;
 
-                        LogSongEnd(completed: false);
+                        EndSongRun(completed: false);
 
                         // Reset timers so a new run gets clean values
                         lowTime = float.MaxValue;
@@ -1226,7 +1199,7 @@ namespace RockSnifferLib.Sniffing
                             Logger.Log("Song Restarted! (notes counter reset {0} -> {1}, timer {2:F3})", snapshotTotal, currentTotal, currentMemoryReadout.songTimer);
 
                             completed = false;
-                            LogSongEnd(completed: false);
+                            EndSongRun(completed: false);
                             currentState = SnifferState.IN_MENUS;
 
                             // Reset timers so the new run gets clean values and START
@@ -1254,7 +1227,7 @@ namespace RockSnifferLib.Sniffing
 
                         completed = true;
 
-                        LogSongEnd(completed: true);
+                        EndSongRun(completed: true);
                         currentState = SnifferState.IN_MENUS;
 
                         // Reset pause / timing
