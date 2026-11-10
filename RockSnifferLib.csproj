@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <LangVersion>default</LangVersion>
     <Platforms>AnyCPU;x64</Platforms>
     <Nullable>enable</Nullable>
@@ -12,9 +12,7 @@
     <ProjectReference Include="..\Rocksmith2014PsarcLib\Rocksmith2014PsarcLib.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
-    <PackageReference Include="System.Threading.Tasks.Dataflow" Version="8.0.1" />
   </ItemGroup>
   <Import Project="..\packages\System.Data.SQLite.Core.1.0.113.1\build\net46\System.Data.SQLite.Core.targets" Condition="Exists('..\packages\System.Data.SQLite.Core.1.0.113.1\build\net46\System.Data.SQLite.Core.targets')" />
 </Project>
