@@ -61,6 +61,12 @@ namespace RockSnifferLib.RSHelpers
                     //Remove Play_ prefix and _Preview or _Invalid suffix
                     string song_id = preview_name.Substring(5, preview_name.Length - 13);
 
+                    // readout persists between polls, so drop the previous song's arrangement
+                    if (readout.songID != song_id)
+                    {
+                        readout.arrangementID = null;
+                    }
+
                     //Assign to readout
                     readout.songID = song_id;
                 }
@@ -69,21 +75,7 @@ namespace RockSnifferLib.RSHelpers
             // SONG TIMER
             ReadSongTimer(FollowPointers(MemoryOffsets.GetSongTimerPointer(edition)));
 
-            // ARRANGEMENT HASH
-            //
-            // This is set to the arrangement persistent id while playing a song
-            string arrangement_hash = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(MemoryOffsets.GetArrangementHashPointer(edition)));
-            if (arrangement_hash != null)
-            {
-                readout.arrangementID = arrangement_hash;
-            }
-
-            // GAME STATE
-            //
-            // This one popped up while looking for arrangement hash, seems to be a logical string representing the current game stage
-            // Can be garbled under unknown circumstances
-            // Exists in two (and probably more) locations, where only one may be valid, this tries to get either
-            // Prioritizing the one at 0x27C, because it is more human readable
+            // GAME STAGE: read before the arrangement ID, which picks its pointer by game stage
             string game_stage = MemoryHelper.ReadStringFromMemory(rsProcessHandle, FollowPointers(MemoryOffsets.GetCurrentMenuPointer(edition)));
 
             //If we got a game stage
@@ -94,6 +86,66 @@ namespace RockSnifferLib.RSHelpers
                 {
                     readout.gameStage = game_stage;
                 }
+            }
+
+            // MODE: the plain "tuner" stage opens from any mode, so it keeps the previous one
+            if (!string.Equals(readout.gameStage, "tuner", StringComparison.OrdinalIgnoreCase))
+            {
+                readout.mode = DeriveModeFromGameStage(readout.gameStage);
+            }
+
+            // ARRANGEMENT ID: the hash isn't set in Nonstop Play, so Learn a Song and Nonstop
+            // read the loaded arrangement GUID. Invalid reads keep the previous value.
+            bool usePlayArrIDChain = readout.gameStage == "las_game"
+                                  || readout.gameStage == "las_pause"
+                                  || readout.gameStage == "nonstopplaygame"
+                                  || readout.gameStage == "nsp_pause";
+
+            string resolved_arrangement_id;
+            if (usePlayArrIDChain)
+            {
+                resolved_arrangement_id = ReadGuidFromMemory(
+                    FollowPointers(MemoryOffsets.GetPlayArrIDPointer(edition)));
+            }
+            else
+            {
+                resolved_arrangement_id = MemoryHelper.ReadStringFromMemory(
+                    rsProcessHandle,
+                    FollowPointers(MemoryOffsets.GetArrangementHashPointer(edition)));
+            }
+
+            if (IsValidArrangementHash(resolved_arrangement_id))
+            {
+                readout.arrangementID = resolved_arrangement_id;
+            }
+
+            // CURRENT PATH
+            IntPtr pathAddr = FollowPointers(MemoryOffsets.GetCurrentPathPointer(edition));
+            if (pathAddr != IntPtr.Zero)
+            {
+                byte pathByte = MemoryHelper.ReadByteFromMemory(rsProcessHandle, pathAddr);
+                readout.currentPath = pathByte switch
+                {
+                    0x01 => RSPath.Lead,
+                    0x02 => RSPath.Rhythm,
+                    0x04 => RSPath.Bass,
+                    _ => RSPath.Unknown
+                };
+            }
+
+            // PAUSE MENU
+            IntPtr pauseModeAddr = FollowPointers(MemoryOffsets.GetPauseMenuModePointer(edition));
+            if (pauseModeAddr != IntPtr.Zero)
+            {
+                byte modeByte = MemoryHelper.ReadByteFromMemory(rsProcessHandle, pauseModeAddr);
+                readout.pauseMenuMode = modeByte switch
+                {
+                    0 => PauseMenuMode.None,
+                    1 => PauseMenuMode.SubOverlay,
+                    2 => PauseMenuMode.TopOverlay,
+                    _ => PauseMenuMode.Unknown
+                };
+                readout.isPaused = readout.pauseMenuMode is PauseMenuMode.SubOverlay or PauseMenuMode.TopOverlay;
             }
 
             // NOTE DATA
@@ -111,10 +163,7 @@ namespace RockSnifferLib.RSHelpers
             if (!ReadNoteData(FollowPointers(MemoryOffsets.GetLearnASongNoteDataPointer(edition))))
             {
                 //Score attack
-                if (!ReadScoreAttackNoteData(FollowPointers(MemoryOffsets.GetScoreAttackNoteDataPointer(edition))))
-                {
-                    readout.mode = RSMode.UNKNOWN;
-                }
+                ReadScoreAttackNoteData(FollowPointers(MemoryOffsets.GetScoreAttackNoteDataPointer(edition)));
             }
 
             //Copy over everything when a song is running
@@ -128,7 +177,103 @@ namespace RockSnifferLib.RSHelpers
             prevReadout.gameStage = readout.gameStage;
             prevReadout.songTimer = readout.songTimer;
 
+            // These are valid outside of songs too
+            prevReadout.currentPath = readout.currentPath;
+            prevReadout.pauseMenuMode = readout.pauseMenuMode;
+            prevReadout.isPaused = readout.isPaused;
+            prevReadout.mode = readout.mode;
+            prevReadout.arrangementID = readout.arrangementID;
+
             return prevReadout;
+        }
+
+        // Filters out garbage reads while a song loads
+        private static bool IsValidArrangementHash(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.Length != 32)
+            {
+                return false;
+            }
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (!((c >= '0' && c <= '9') ||
+                      (c >= 'A' && c <= 'F') ||
+                      (c >= 'a' && c <= 'f')))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static RSMode DeriveModeFromGameStage(string gameStage)
+        {
+            if (string.IsNullOrEmpty(gameStage))
+            {
+                return RSMode.UNKNOWN;
+            }
+
+            string gs = gameStage.ToLowerInvariant();
+
+            switch (gs)
+            {
+                case "learnasong":
+                case "las_songs":
+                case "las_options":
+                case "las_tuner":
+                case "las_game":
+                case "las_pause":
+                case "las_songreview":
+                    return RSMode.LEARNASONG;
+
+                case "scoreattack":
+                case "panel_bib":
+                case "scoreattack_presongtuner":
+                case "sa_game":
+                case "sa_pause":
+                case "sa_songreview":
+                    return RSMode.SCOREATTACK;
+
+                case "gcpre":
+                case "gcade":
+                case "gcade_game":
+                case "guitarcade_tuner":
+                    return RSMode.GUITARCADE;
+
+                case "nonstopplay":
+                case "nsp_main":
+                case "nonstopplayhub":
+                case "nsp_tuner":
+                case "nonstopplaygame":
+                case "nsp_pause":
+                    return RSMode.NONSTOPPLAY;
+
+                case "getuner":
+                case "pregametuner":
+                    return RSMode.LESSONS;
+
+                case "split_game":
+                    return RSMode.MULTIPLAYER;
+
+                case "titlescreen":
+                case "profileselect":
+                case "main":
+                case "mainmenu":
+                case "statsmenu":
+                case "shop":
+                case "contentpanelchord":
+                case "sidelist":
+                    return RSMode.MENU;
+            }
+
+            if (gs.StartsWith("gc_")) return RSMode.GUITARCADE;
+            if (gs.StartsWith("sm_")) return RSMode.SESSION;
+            if (gs.StartsWith("ge_")) return RSMode.LESSONS;
+            if (gs.StartsWith("mp_") || gs.StartsWith("duet_") || gs.StartsWith("h2h_")) return RSMode.MULTIPLAYER;
+            if (gs.StartsWith("tonedesigner")) return RSMode.MENU;
+
+            return RSMode.UNKNOWN;
         }
 
         private IntPtr FollowPointers((int entryAddress, int[] offsets) tuple)
@@ -172,6 +317,18 @@ namespace RockSnifferLib.RSHelpers
             readout.songTimer = MemoryHelper.ReadFloatFromMemory(rsProcessHandle, timerAddress);
         }
 
+        // Same format as the arrangement IDs in song details
+        private string ReadGuidFromMemory(IntPtr address)
+        {
+            if (address == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            byte[] bytes = MemoryHelper.ReadBytesFromMemory(rsProcessHandle, address, 16);
+            return new Guid(bytes).ToString("N").ToUpperInvariant();
+        }
+
         private bool ReadNoteData(IntPtr structAddress)
         {
             //Check validity
@@ -186,9 +343,6 @@ namespace RockSnifferLib.RSHelpers
             {
                 return false;
             }
-
-            //Assign mode
-            readout.mode = RSMode.LEARNASONG;
 
             //Read note data
             readout.noteData = MemoryHelper.ReadStructureFromMemory<LearnASongNoteData>(rsProcessHandle, structAddress);
@@ -210,8 +364,6 @@ namespace RockSnifferLib.RSHelpers
             {
                 return false;
             }
-
-            readout.mode = RSMode.SCOREATTACK;
 
             //Read note data
             readout.noteData = MemoryHelper.ReadStructureFromMemory<ScoreAttackNoteData>(rsProcessHandle, structAddress);

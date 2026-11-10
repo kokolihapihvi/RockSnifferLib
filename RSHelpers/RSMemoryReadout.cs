@@ -1,4 +1,6 @@
-﻿using RockSnifferLib.Logging;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using RockSnifferLib.Logging;
 using RockSnifferLib.RSHelpers.NoteData;
 using System;
 
@@ -13,6 +15,21 @@ namespace RockSnifferLib.RSHelpers
         public string arrangementID = "";
         public string gameStage = "";
 
+        /// <summary>
+        /// Path selected in the menus. Unlike arrangementID, this is valid in Nonstop Play.
+        /// </summary>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public RSPath currentPath = RSPath.Unknown;
+
+        [JsonConverter(typeof(StringEnumConverter))]
+        public PauseMenuMode pauseMenuMode = PauseMenuMode.None;
+
+        /// <summary>
+        /// Pause overlay is open. Use SnifferState to know if a song is paused.
+        /// </summary>
+        public bool isPaused = false;
+
+        [JsonConverter(typeof(StringEnumConverter))]
         public RSMode mode = RSMode.UNKNOWN;
         public INoteData noteData;
 
@@ -38,6 +55,11 @@ namespace RockSnifferLib.RSHelpers
             copy.songID = songID;
             copy.arrangementID = arrangementID;
             copy.gameStage = gameStage;
+
+            copy.currentPath = currentPath;
+
+            copy.pauseMenuMode = pauseMenuMode;
+            copy.isPaused = isPaused;
 
             copy.mode = mode;
 
