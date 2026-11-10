@@ -1127,7 +1127,6 @@ namespace RockSnifferLib.Sniffing
                         currentMemoryReadout.songTimer > initTime)
                     {
                         currentState = SnifferState.SONG_PAUSED;
-                        Logger.Log("Song Paused! (pauseMenuMode={0} at timer {1:F3})", currentMemoryReadout.pauseMenuMode, currentMemoryReadout.songTimer);
                         paused = true;
                         // Snapshot songTimer for resume-vs-exit disambiguation
                         // (see pauseTimerSnapshot field docs above for rationale).
@@ -1140,21 +1139,6 @@ namespace RockSnifferLib.Sniffing
                     if (currentMemoryReadout.songTimer <= initTime &&
                         initTime != float.MaxValue)
                     {
-                        // Label restart vs quit-to-menu using the same note-counter
-                        // discriminator as the timer-moved branch below: Restart zeroes
-                        // noteData for the new attempt, a quit leaves the old count. The
-                        // in-run snapshot holds the ended attempt's count to compare.
-                        int currentTotal = currentMemoryReadout.noteData?.TotalNotes ?? -1;
-                        int snapshotTotal = lastInRunReadout?.noteData?.TotalNotes ?? -1;
-                        if (currentTotal >= 0 && snapshotTotal > 0 && currentTotal < snapshotTotal)
-                        {
-                            Logger.Log("Song Restarted! (notes counter reset {0} -> {1}, timer {2:F3})", snapshotTotal, currentTotal, currentMemoryReadout.songTimer);
-                        }
-                        else
-                        {
-                            Logger.Log("Song ended from pause (timer {0:F3} <= initTime {1:F3})", currentMemoryReadout.songTimer, initTime);
-                        }
-
                         currentState = SnifferState.IN_MENUS;
 
                         // Not a full completion
@@ -1196,8 +1180,6 @@ namespace RockSnifferLib.Sniffing
                         int snapshotTotal = lastInRunReadout?.noteData?.TotalNotes ?? -1;
                         if (currentTotal >= 0 && snapshotTotal > 0 && currentTotal < snapshotTotal)
                         {
-                            Logger.Log("Song Restarted! (notes counter reset {0} -> {1}, timer {2:F3})", snapshotTotal, currentTotal, currentMemoryReadout.songTimer);
-
                             completed = false;
                             EndSongRun(completed: false);
                             currentState = SnifferState.IN_MENUS;
@@ -1214,7 +1196,6 @@ namespace RockSnifferLib.Sniffing
                         else
                         {
                             currentState = SnifferState.SONG_PLAYING;
-                            Logger.Log("Song Resumed! (pauseMenuMode=None at timer {0:F3}, was paused at {1:F3})", currentMemoryReadout.songTimer, pauseTimerSnapshot);
                             pauseTimerSnapshot = float.MinValue;
                         }
                     }
