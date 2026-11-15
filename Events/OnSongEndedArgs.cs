@@ -13,7 +13,7 @@ namespace RockSnifferLib.Events
 
         // Copied from the start of the run; in Nonstop Play the live readout may
         // already be on the next song.
-        public string arrangementID;
+        public string? arrangementID;
         public string path;
         public string tuning;
         public bool wasNonstopMode;

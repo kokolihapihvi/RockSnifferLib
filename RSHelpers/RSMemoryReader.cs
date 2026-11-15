@@ -145,7 +145,6 @@ namespace RockSnifferLib.RSHelpers
                     2 => PauseMenuMode.TopOverlay,
                     _ => PauseMenuMode.Unknown
                 };
-                readout.isPaused = readout.pauseMenuMode is PauseMenuMode.SubOverlay or PauseMenuMode.TopOverlay;
             }
 
             // NOTE DATA
@@ -180,7 +179,6 @@ namespace RockSnifferLib.RSHelpers
             // These are valid outside of songs too
             prevReadout.currentPath = readout.currentPath;
             prevReadout.pauseMenuMode = readout.pauseMenuMode;
-            prevReadout.isPaused = readout.isPaused;
             prevReadout.mode = readout.mode;
             prevReadout.arrangementID = readout.arrangementID;
 

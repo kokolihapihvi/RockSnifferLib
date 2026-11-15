@@ -10,7 +10,7 @@ namespace RockSnifferLib.Events
 
         // If no arrangement could be resolved, arrangementID is null and path and
         // tuning are "unknown"
-        public string arrangementID;
+        public string? arrangementID;
         public string path;
         public string tuning;
 

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace RockSnifferLib.RSHelpers
 {
     /// <summary>
-    /// Game mode, derived from gameStage. Values 0-3 keep their original numbers.
+    /// Game mode, derived from gameStage.
     /// </summary>
     public enum RSMode
     {

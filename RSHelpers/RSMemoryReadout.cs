@@ -27,7 +27,7 @@ namespace RockSnifferLib.RSHelpers
         /// <summary>
         /// Pause overlay is open. Use SnifferState to know if a song is paused.
         /// </summary>
-        public bool isPaused = false;
+        public bool isPaused => pauseMenuMode is PauseMenuMode.SubOverlay or PauseMenuMode.TopOverlay;
 
         [JsonConverter(typeof(StringEnumConverter))]
         public RSMode mode = RSMode.UNKNOWN;
@@ -59,7 +59,6 @@ namespace RockSnifferLib.RSHelpers
             copy.currentPath = currentPath;
 
             copy.pauseMenuMode = pauseMenuMode;
-            copy.isPaused = isPaused;
 
             copy.mode = mode;
 
