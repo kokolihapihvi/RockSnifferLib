@@ -79,8 +79,12 @@ public static class MemoryOffsets
     }
 
     /// <summary>
-    /// Get the pointer to the current menu for the given edition
+    /// Get the address of the current gameStage string for the given edition
     /// </summary>
+    /// <remarks>
+    /// Rocksmith doesn't update it on resume or restart from the pause menu, so use
+    /// SnifferState for pause state.
+    /// </remarks>
     /// <param name="edition"></param>
     /// <returns>A tuple of (entry address, pointer offsets)</returns>
     /// <exception cref="ArgumentOutOfRangeException"></exception>   
@@ -88,9 +92,9 @@ public static class MemoryOffsets
     {
         return edition switch
         {
-            RSEdition.Remastered_Just_In_Case_We_Need_It_Beta => (0x00F5C5AC, [0x18, 0x18, 0xC, 0x14]),
-            RSEdition.Remastered => (0x00F5C5AC + 0x3080, [0x18, 0x18, 0xC, 0x14]),
-            RSEdition.Remastered_Learn_And_Play => (0x00F5C5AC + 0x4080, [0x18, 0x18, 0xC, 0x14]),
+            RSEdition.Remastered_Just_In_Case_We_Need_It_Beta => (0x00F5C749, []),
+            RSEdition.Remastered => (0x00F5C749 + 0x3080, []),
+            RSEdition.Remastered_Learn_And_Play => (0x00F5C749 + 0x4080, []),
             _ => throw new ArgumentOutOfRangeException(nameof(edition), edition, "Unknown edition")
         };
     }
@@ -125,6 +129,61 @@ public static class MemoryOffsets
             RSEdition.Remastered_Just_In_Case_We_Need_It_Beta => (0x00F5C5AC, [0xB0, 0x18, 0x4, 0x4C, 0x0]),
             RSEdition.Remastered => (0x00F5C5AC + 0x3080, [0xB0, 0x18, 0x4, 0x4C, 0x0]),
             RSEdition.Remastered_Learn_And_Play => (0x00F5C5AC + 0x4080, [0xB0, 0x18, 0x4, 0x4C, 0x0]),
+            _ => throw new ArgumentOutOfRangeException(nameof(edition), edition, "Unknown edition")
+        };
+    }
+
+    /// <summary>
+    /// Get the pointer to the selected Path byte (see RSPath) for the given edition
+    /// </summary>
+    /// <param name="edition"></param>
+    /// <returns>A tuple of (entry address, pointer offsets)</returns>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    public static (int entryAddress, int[] offsets) GetCurrentPathPointer(RSEdition edition)
+    {
+        return edition switch
+        {
+            RSEdition.Remastered_Just_In_Case_We_Need_It_Beta => (0x00F5C4F0, [0x10, 0x1FC]),
+            RSEdition.Remastered => (0x00F5C4F0 + 0x3080, [0x10, 0x1FC]),
+            RSEdition.Remastered_Learn_And_Play => (0x00F5C4F0 + 0x4080, [0x10, 0x1FC]),
+            _ => throw new ArgumentOutOfRangeException(nameof(edition), edition, "Unknown edition")
+        };
+    }
+
+    /// <summary>
+    /// Get the address of the pause menu byte (see PauseMenuMode) for the given edition
+    /// </summary>
+    /// <param name="edition"></param>
+    /// <returns>A tuple of (entry address, pointer offsets)</returns>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    public static (int entryAddress, int[] offsets) GetPauseMenuModePointer(RSEdition edition)
+    {
+        return edition switch
+        {
+            RSEdition.Remastered_Just_In_Case_We_Need_It_Beta => (0x00F5C57C, []),
+            RSEdition.Remastered => (0x00F5C57C + 0x3080, []),
+            RSEdition.Remastered_Learn_And_Play => (0x00F5C57C + 0x4080, []),
+            _ => throw new ArgumentOutOfRangeException(nameof(edition), edition, "Unknown edition")
+        };
+    }
+
+    /// <summary>
+    /// Get the pointer to the loaded arrangement GUID for the given edition
+    /// </summary>
+    /// <remarks>
+    /// Valid in Learn a Song and Nonstop Play; the arrangement hash isn't set in
+    /// Nonstop Play. Not valid in Score Attack.
+    /// </remarks>
+    /// <param name="edition"></param>
+    /// <returns>A tuple of (entry address, pointer offsets)</returns>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    public static (int entryAddress, int[] offsets) GetPlayArrIDPointer(RSEdition edition)
+    {
+        return edition switch
+        {
+            RSEdition.Remastered_Just_In_Case_We_Need_It_Beta => (0x00F5C5AC, [0xB0, 0x18, 0x4, 0x84, 0x20]),
+            RSEdition.Remastered => (0x00F5C5AC + 0x3080, [0xB0, 0x18, 0x4, 0x84, 0x20]),
+            RSEdition.Remastered_Learn_And_Play => (0x00F5C5AC + 0x4080, [0xB0, 0x18, 0x4, 0x84, 0x20]),
             _ => throw new ArgumentOutOfRangeException(nameof(edition), edition, "Unknown edition")
         };
     }

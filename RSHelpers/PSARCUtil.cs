@@ -240,6 +240,7 @@ namespace RockSnifferLib.RSHelpers
                             }
 
                             arrangementDetails.tuning = new ArrangementTuning(arrangement.Tuning, (int)arrangement.CentOffset, (int)arrangement.CapoFret);
+                            arrangementDetails.tuning.IsBass = (arrangementDetails.type == "Bass");
 
 
                             //file hash

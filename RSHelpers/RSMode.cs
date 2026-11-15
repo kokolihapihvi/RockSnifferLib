@@ -6,11 +6,19 @@ using System.Threading.Tasks;
 
 namespace RockSnifferLib.RSHelpers
 {
+    /// <summary>
+    /// Game mode, derived from gameStage.
+    /// </summary>
     public enum RSMode
     {
         UNKNOWN,
         LEARNASONG,
         SCOREATTACK,
-        MULTIPLAYER
+        MULTIPLAYER,
+        NONSTOPPLAY,
+        GUITARCADE,
+        SESSION,
+        LESSONS,
+        MENU
     }
 }

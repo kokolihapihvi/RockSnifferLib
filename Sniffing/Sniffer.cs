@@ -3,6 +3,7 @@ using RockSnifferLib.Configuration;
 using RockSnifferLib.Events;
 using RockSnifferLib.Logging;
 using RockSnifferLib.RSHelpers;
+using RockSnifferLib.RSHelpers.NoteData;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -31,12 +32,18 @@ namespace RockSnifferLib.Sniffing
         public event EventHandler<OnMemoryReadoutArgs> OnMemoryReadout;
 
         /// <summary>
-        /// Fired when a song starts
+        /// Fired when a selected song starts loading, before gameplay begins
+        /// </summary>
+        public event EventHandler<OnSongSelectedArgs> OnSongSelected;
+
+        /// <summary>
+        /// Fired once per run when gameplay starts
         /// </summary>
         public event EventHandler<OnSongStartedArgs> OnSongStarted;
 
         /// <summary>
-        /// Fired when a song ends
+        /// Fired once per run when gameplay ends: completed, quit, restarted, or
+        /// replaced by the next song in Nonstop Play
         /// </summary>
         public event EventHandler<OnSongEndedArgs> OnSongEnded;
 
@@ -60,6 +67,38 @@ namespace RockSnifferLib.Sniffing
         /// Currently active memory readout
         /// </summary>
         private RSMemoryReadout currentMemoryReadout = new RSMemoryReadout();
+
+        // initTime is just past the lowest timer seen in the run, for restart detection
+        private float lowTime = float.MaxValue;
+        private float initTime = float.MaxValue;
+        private float maxTime = float.MinValue;
+        private bool paused = false;
+
+        // Exit from the pause menu closes the overlay without moving the timer; not a resume
+        private float pauseTimerSnapshot = float.MinValue;
+
+        // After Restart from the pause menu the byte stays TopOverlay for a moment,
+        // so a pause only starts when the overlay opens
+        private PauseMenuMode previousPauseMenuMode = PauseMenuMode.None;
+
+        // Taken at the start of the run; in Nonstop Play the readout moves on before the end
+        private string currentSongRunArrangementID = null;
+        private string currentSongRunPath = null;
+        private string currentSongRunTuning = null;
+        private bool currentSongRunWasNonstopMode = false;
+        private bool currentSongRunWasMultiplayerMode = false;
+
+        // For the end of the run: on Restart the note data resets before the old run ends
+        private RSMemoryReadout lastInRunReadout = null;
+
+        // Several paths can start or end the same run; these make each happen once
+        private string songRunStartedForID = null;
+        private string songRunEndedForID = null;
+
+        // Runs that never got past this were aborted before playback, e.g. no input detected
+        private const float MIN_PROGRESS_SECONDS = 0.1f;
+
+        private string lastGameStage = null;
 
         /// <summary>
         /// Reference to the rocksmith process
@@ -166,12 +205,7 @@ namespace RockSnifferLib.Sniffing
             if (oldState is SnifferState.IN_MENUS or SnifferState.SONG_SELECTED &&
                 newState is SnifferState.SONG_STARTING or SnifferState.SONG_PLAYING)
             {
-                OnSongStarted?.Invoke(this, new OnSongStartedArgs { song = currentCDLCDetails });
-            }
-            else if (newState == SnifferState.IN_MENUS &&
-                oldState != SnifferState.NONE)
-            {
-                OnSongEnded?.Invoke(this, new OnSongEndedArgs { song = currentCDLCDetails });
+                OnSongSelected?.Invoke(this, new OnSongSelectedArgs { song = currentCDLCDetails });
             }
         }
 
@@ -203,6 +237,15 @@ namespace RockSnifferLib.Sniffing
 
                 if (newReadout.songID != currentMemoryReadout.songID || (currentCDLCDetails == null || !currentCDLCDetails.IsValid()))
                 {
+                    // End the previous song's run before switching songs. In Nonstop Play
+                    // the state machine can stay in SONG_ENDING and never end it itself.
+                    if (CanEndSongRun())
+                    {
+                        EndSongRun(DetermineCompletedForForceEnd());
+                        currentState = SnifferState.IN_MENUS;
+                        ResetRunTiming();
+                    }
+
                     var newDetails = _cache.Get(newReadout.songID);
 
                     if (newDetails != null && newDetails.IsValid())
@@ -210,11 +253,84 @@ namespace RockSnifferLib.Sniffing
                         currentCDLCDetails = _cache.Get(newReadout.songID);
                         OnSongChanged?.Invoke(this, new OnSongChangedArgs { songDetails = currentCDLCDetails });
                         currentCDLCDetails.Print();
+
+                        ResetRunTiming();
+                        ResetSongRun();
+                        songRunEndedForID = null;
                     }
 
                 }
 
+                // After a song change the memory can still hold the previous song's
+                // arrangement ID, so drop IDs that don't belong to the current song
+                if (currentCDLCDetails != null && currentCDLCDetails.IsValid() &&
+                    !string.IsNullOrEmpty(newReadout.arrangementID) &&
+                    !currentCDLCDetails.arrangements.Any(a => a.arrangementID == newReadout.arrangementID))
+                {
+                    newReadout.arrangementID = null;
+                }
+
+                previousPauseMenuMode = currentMemoryReadout?.pauseMenuMode ?? PauseMenuMode.None;
+
                 newReadout.CopyTo(ref currentMemoryReadout);
+
+                // Only while the timer moves forward: after a Restart the state can still
+                // be SONG_PAUSED while the new attempt plays, and a resume rewinds a little
+                if ((currentState == SnifferState.SONG_STARTING ||
+                     currentState == SnifferState.SONG_PLAYING ||
+                     currentState == SnifferState.SONG_PAUSED ||
+                     currentState == SnifferState.SONG_ENDING) &&
+                    currentMemoryReadout.songTimer > 0 &&
+                    (lastInRunReadout == null ||
+                     currentMemoryReadout.songTimer >= lastInRunReadout.songTimer))
+                {
+                    lastInRunReadout = currentMemoryReadout.Clone();
+                }
+
+                if (currentMemoryReadout.songTimer >= 0.001f)
+                {
+                    // One poll interval past the lowest timer seen
+                    if (lowTime == float.MaxValue || currentMemoryReadout.songTimer < lowTime)
+                    {
+                        lowTime = currentMemoryReadout.songTimer;
+                        initTime = currentMemoryReadout.songTimer + 0.101f;
+                    }
+
+                    maxTime = Math.Max(maxTime, currentMemoryReadout.songTimer);
+                }
+
+                // The timer-based state machine can miss song changes in Nonstop Play,
+                // so also start and end runs on its gameStage changes
+                string currentGameStage = currentMemoryReadout.gameStage;
+                if (currentGameStage != lastGameStage)
+                {
+                    string prevStage = lastGameStage;
+                    string newStage = currentGameStage;
+
+                    // Usually the songID change above ends the run first
+                    if (prevStage == "nonstopplaygame" && newStage == "nonstopplayhub")
+                    {
+                        if (CanEndSongRun())
+                        {
+                            EndSongRun(DetermineCompletedForForceEnd());
+                            currentState = SnifferState.IN_MENUS;
+                            ResetRunTiming();
+                        }
+                    }
+                    // The timer can flash non-zero while loading, so wait for it to pass initTime
+                    else if (prevStage == "nonstopplayhub" && newStage == "nonstopplaygame")
+                    {
+                        if (CanBeginSongRun() &&
+                            initTime != float.MaxValue &&
+                            currentMemoryReadout.songTimer > initTime)
+                        {
+                            BeginSongRun();
+                            currentState = SnifferState.SONG_PLAYING;
+                        }
+                    }
+
+                    lastGameStage = newStage;
+                }
 
                 OnMemoryReadout?.Invoke(this, new OnMemoryReadoutArgs() { memoryReadout = currentMemoryReadout });
 
@@ -460,6 +576,235 @@ namespace RockSnifferLib.Sniffing
             fileSystemWatchers.Clear();
         }
 
+        private void BeginSongRun()
+        {
+            if (!CanBeginSongRun())
+            {
+                return;
+            }
+
+            ArrangementDetails? arrangement = ResolveRunArrangement();
+            CaptureSongRunStart(arrangement);
+
+            OnSongStarted?.Invoke(this, new OnSongStartedArgs
+            {
+                song = currentCDLCDetails,
+                timestamp = DateTime.Now,
+                arrangementID = currentSongRunArrangementID,
+                path = currentSongRunPath,
+                tuning = currentSongRunTuning,
+                wasNonstopMode = currentSongRunWasNonstopMode,
+                wasMultiplayerMode = currentSongRunWasMultiplayerMode
+            });
+
+            if (arrangement == null)
+            {
+                Logger.LogError(
+                    "Could not resolve the arrangement for {0} (arrangementID '{1}', {2} arrangements), path and tuning will be 'unknown'",
+                    currentCDLCDetails.songID ?? "<unknown>",
+                    currentMemoryReadout.arrangementID ?? "<null>",
+                    currentCDLCDetails.arrangements?.Count ?? 0);
+            }
+        }
+
+        private bool CanBeginSongRun()
+        {
+            if (currentCDLCDetails == null || !currentCDLCDetails.IsValid())
+            {
+                return false;
+            }
+
+            if (songRunStartedForID != null &&
+                songRunStartedForID == currentCDLCDetails.songID)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private ArrangementDetails? ResolveRunArrangement()
+        {
+            var arrangements = currentCDLCDetails.arrangements;
+            if (arrangements == null || arrangements.Count == 0)
+            {
+                return null;
+            }
+
+            var arrangement = arrangements.FirstOrDefault(a => a.arrangementID == currentMemoryReadout.arrangementID);
+            if (arrangement != null)
+            {
+                return arrangement;
+            }
+
+            // The selected Path only gives the type, so prefer the main arrangement
+            // over bonus and alternate ones
+            string currentPath = null;
+            if (currentMemoryReadout.currentPath != RSPath.Unknown)
+            {
+                currentPath = currentMemoryReadout.currentPath.ToString();
+            }
+
+            if (currentPath != null)
+            {
+                var pathMatches = arrangements.Where(a => a.type == currentPath || a.name == currentPath).ToList();
+                arrangement = pathMatches.FirstOrDefault(a => !a.isBonusArrangement && !a.isAlternateArrangement)
+                    ?? pathMatches.FirstOrDefault();
+
+                if (arrangement != null)
+                {
+                    return arrangement;
+                }
+            }
+
+            var playable = arrangements.Where(a => !a.isBonusArrangement && !a.isAlternateArrangement).ToList();
+            if (playable.Count == 1)
+            {
+                return playable[0];
+            }
+
+            if (arrangements.Count == 1)
+            {
+                return arrangements[0];
+            }
+
+            return null;
+        }
+
+        private void CaptureSongRunStart(ArrangementDetails? arrangement)
+        {
+            string startGameStage = currentMemoryReadout?.gameStage;
+            currentSongRunWasNonstopMode =
+                startGameStage == "nsp_main" ||
+                startGameStage == "nonstopplayhub" ||
+                startGameStage == "nonstopplaygame";
+            currentSongRunWasMultiplayerMode = currentMemoryReadout?.mode == RSMode.MULTIPLAYER;
+
+            if (arrangement != null)
+            {
+                currentSongRunArrangementID = arrangement.arrangementID;
+                currentSongRunPath = arrangement.type;
+                currentSongRunTuning = arrangement.tuning.TuningName;
+            }
+            else
+            {
+                currentSongRunArrangementID = null;
+                currentSongRunPath = "unknown";
+                currentSongRunTuning = "unknown";
+            }
+
+            songRunStartedForID = currentCDLCDetails.songID;
+
+            // A replay of the same song has the same songID
+            songRunEndedForID = null;
+
+            // So a run that ends right away doesn't report the previous run's stats
+            lastInRunReadout = currentMemoryReadout?.Clone();
+        }
+
+        // For runs that end without passing through SONG_ENDING
+        private bool DetermineCompletedForForceEnd()
+        {
+            // Score Attack fail, also on the last phrase
+            if (currentMemoryReadout?.mode == RSMode.SCOREATTACK &&
+                currentMemoryReadout.noteData is ScoreAttackNoteData saData &&
+                saData.FailedPhrases >= 3)
+            {
+                return false;
+            }
+
+            if (maxTime < MIN_PROGRESS_SECONDS)
+            {
+                return false;
+            }
+
+            // Quit, restart or skip from the pause menu
+            if (currentState == SnifferState.SONG_PAUSED)
+            {
+                return false;
+            }
+
+            // E.g. the poll missed SONG_ENDING, or Nonstop Play moved to the next song
+            return true;
+        }
+
+        private void EndSongRun(bool completed)
+        {
+            if (!CanEndSongRun())
+            {
+                return;
+            }
+
+            OnSongEndedArgs args = CaptureSongRunEnd(completed);
+
+            // Set before firing, so handlers can't end the run again
+            songRunEndedForID = args.song.songID;
+            OnSongEnded?.Invoke(this, args);
+
+            ResetSongRun();
+        }
+
+        private bool CanEndSongRun()
+        {
+            if (currentCDLCDetails == null || !currentCDLCDetails.IsValid())
+            {
+                return false;
+            }
+
+            // No end without a start, e.g. quit before the timer moved
+            if (songRunStartedForID != currentCDLCDetails.songID)
+            {
+                return false;
+            }
+
+            if (songRunEndedForID != null &&
+                songRunEndedForID == currentCDLCDetails.songID)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private OnSongEndedArgs CaptureSongRunEnd(bool completed)
+        {
+            RSMemoryReadout readout = (lastInRunReadout ?? currentMemoryReadout)?.Clone();
+
+            return new OnSongEndedArgs
+            {
+                song = currentCDLCDetails,
+                timestamp = DateTime.Now,
+                completed = completed,
+                paused = paused,
+                arrangementID = currentSongRunArrangementID,
+                path = currentSongRunPath,
+                tuning = currentSongRunTuning,
+                wasNonstopMode = currentSongRunWasNonstopMode,
+                wasMultiplayerMode = currentSongRunWasMultiplayerMode,
+                readout = readout
+            };
+        }
+
+        private void ResetSongRun()
+        {
+            // The end guard stays set until the next start, so the same run can't end twice
+            songRunStartedForID = null;
+            currentSongRunArrangementID = null;
+            currentSongRunPath = null;
+            currentSongRunTuning = null;
+            currentSongRunWasNonstopMode = false;
+            currentSongRunWasMultiplayerMode = false;
+        }
+
+        private void ResetRunTiming()
+        {
+            lowTime = float.MaxValue;
+            initTime = float.MaxValue;
+            maxTime = float.MinValue;
+            pauseTimerSnapshot = float.MinValue;
+            paused = false;
+        }
+
         /// <summary>
         /// Update the state of the sniffer
         /// </summary>
@@ -469,7 +814,9 @@ namespace RockSnifferLib.Sniffing
             switch (currentState)
             {
                 case SnifferState.IN_MENUS:
-                    if (currentMemoryReadout.songTimer != 0)
+                    // songTimer can read non-zero in menus, e.g. right after attaching
+                    if (currentMemoryReadout.songTimer != 0 &&
+                        IsPotentiallyPlayingGameStage(currentMemoryReadout.gameStage))
                     {
                         currentState = SnifferState.SONG_SELECTED;
                     }
@@ -481,34 +828,88 @@ namespace RockSnifferLib.Sniffing
                     }
 
                     //If we somehow missed some states, skip to SONG_PLAYING
-                    //Or if the user reset
-                    if (currentMemoryReadout.songTimer > 1)
+                    if (initTime != float.MaxValue &&
+                        currentMemoryReadout.songTimer > initTime)
                     {
                         currentState = SnifferState.SONG_PLAYING;
+                        BeginSongRun();
                     }
                     break;
                 case SnifferState.SONG_STARTING:
-                    if (currentMemoryReadout.songTimer > 0)
+                    if (initTime != float.MaxValue &&
+                        currentMemoryReadout.songTimer > initTime)
                     {
                         currentState = SnifferState.SONG_PLAYING;
+                        BeginSongRun();
+                    }
+                    // Backed out while loading, the timer never moved
+                    else if (IsDefinitelyMenuGameStage(currentMemoryReadout.gameStage))
+                    {
+                        currentState = SnifferState.IN_MENUS;
                     }
                     break;
                 case SnifferState.SONG_PLAYING:
-                    //Allow 5 seconds of error margin on song ending
-                    if (currentMemoryReadout.songTimer >= currentCDLCDetails.songLength - 5)
+                    if (currentCDLCDetails != null &&
+                        currentMemoryReadout.songTimer >= currentCDLCDetails.songLength - 0.201f)
                     {
                         currentState = SnifferState.SONG_ENDING;
                     }
-                    //If the timer goes to 0, the user must have quit
-                    if (currentMemoryReadout.songTimer == 0)
+
+                    //If the timer goes to 0 before the end, the song was quit, failed or the poll missed SONG_ENDING
+                    if (currentMemoryReadout.songTimer == 0 &&
+                        initTime != float.MaxValue)
+                    {
+                        EndSongRun(DetermineCompletedForForceEnd());
+                        currentState = SnifferState.IN_MENUS;
+                        ResetRunTiming();
+                        break;
+                    }
+
+                    if (previousPauseMenuMode == PauseMenuMode.None &&
+                        currentMemoryReadout.isPaused &&
+                        initTime != float.MaxValue &&
+                        currentMemoryReadout.songTimer > initTime)
+                    {
+                        currentState = SnifferState.SONG_PAUSED;
+                        paused = true;
+                        pauseTimerSnapshot = currentMemoryReadout.songTimer;
+                    }
+                    break;
+                case SnifferState.SONG_PAUSED:
+                    // Timer back at the start: quit or restart
+                    if (currentMemoryReadout.songTimer <= initTime &&
+                        initTime != float.MaxValue)
                     {
                         currentState = SnifferState.IN_MENUS;
+                        EndSongRun(completed: false);
+                        ResetRunTiming();
+                    }
+                    // Resume, or a restart the branch above missed: only a restart resets the note count
+                    else if (!currentMemoryReadout.isPaused &&
+                             currentMemoryReadout.songTimer > initTime &&
+                             currentMemoryReadout.songTimer != pauseTimerSnapshot)
+                    {
+                        int currentTotal = currentMemoryReadout.noteData?.TotalNotes ?? -1;
+                        int snapshotTotal = lastInRunReadout?.noteData?.TotalNotes ?? -1;
+                        if (currentTotal >= 0 && snapshotTotal > 0 && currentTotal < snapshotTotal)
+                        {
+                            EndSongRun(completed: false);
+                            currentState = SnifferState.IN_MENUS;
+                            ResetRunTiming();
+                        }
+                        else
+                        {
+                            currentState = SnifferState.SONG_PLAYING;
+                            pauseTimerSnapshot = float.MinValue;
+                        }
                     }
                     break;
                 case SnifferState.SONG_ENDING:
                     if (currentMemoryReadout.songTimer == 0)
                     {
+                        EndSongRun(completed: true);
                         currentState = SnifferState.IN_MENUS;
+                        ResetRunTiming();
                     }
                     break;
                 default:
@@ -516,7 +917,10 @@ namespace RockSnifferLib.Sniffing
             }
 
             //Force state to IN_MENUS if the current song details are not valid
-            if (!currentCDLCDetails.IsValid())
+            if (!currentCDLCDetails.IsValid() &&
+                currentState != SnifferState.IN_MENUS &&
+                currentState != SnifferState.SONG_ENDING &&
+                currentState != SnifferState.SONG_PAUSED)
             {
                 currentState = SnifferState.IN_MENUS;
             }
@@ -534,6 +938,48 @@ namespace RockSnifferLib.Sniffing
                 {
                     Logger.Log("Current state: {0}", currentState.ToString());
                 }
+            }
+        }
+
+        // *_pause stays set after resuming
+        private static bool IsPotentiallyPlayingGameStage(string gameStage)
+        {
+            switch (gameStage)
+            {
+                case "las_game":
+                case "sa_game":
+                case "nonstopplaygame":
+                case "las_pause":
+                case "sa_pause":
+                case "nsp_pause":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static bool IsDefinitelyMenuGameStage(string gameStage)
+        {
+            switch (gameStage)
+            {
+                case "mainmenu":
+                case "gcpre":
+                case "learnasong":
+                case "scoreattack":
+                case "nonstopplay":
+                case "nsp_main":
+                case "las_songs":
+                case "las_options":
+                case "las_tuner":
+                case "nsp_tuner":
+                case "las_songreview":
+                case "sa_songreview":
+                case "panel_bib":
+                case "shop":
+                case "gcade":
+                    return true;
+                default:
+                    return false;
             }
         }
     }

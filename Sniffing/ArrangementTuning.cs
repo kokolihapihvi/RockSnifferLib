@@ -136,16 +136,42 @@ namespace RockSnifferLib.Sniffing
             ["C6 Modal"] = new ArrangementTuning(-4, 0, -2, 0, 1, 0, -999, -999),
         };
 
+        // Standard tuning base notes in semitones from C: E A D G B E
+        private static readonly int[] StandardBase = { 4, 9, 2, 7, 11, 4 };
+        private static readonly string[] NoteNames = { "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B" };
+
+        /// <summary>
+        /// Note names per string, e.g. "DbADG" for bass or "DbADGBE" for guitar.
+        /// </summary>
+        private string GetRawTuningName()
+        {
+            int[] offsets = { String0, String1, String2, String3, String4, String5 };
+            int stringCount = IsBass ? 4 : 6;
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < stringCount; i++)
+            {
+                // Double modulo: C# % keeps the sign, and offsets can go below -12
+                int semitone = ((StandardBase[i] + offsets[i]) % 12 + 12) % 12;
+                sb.Append(NoteNames[semitone]);
+            }
+            return sb.ToString();
+        }
+
         public string TuningName
         {
             get
             {
-                string name = "Custom Tuning";
+                string name = null;
 
                 //Find the tuning name in the dictionary
                 KeyValuePair<string, ArrangementTuning> tuningNamePair = _TuningNames.FirstOrDefault(kvp => kvp.Value.Equals(this));
-                if (!tuningNamePair.Equals(default(KeyValuePair<string, ArrangementTuning>))) name = tuningNamePair.Key;
-                name = name.Replace("1G-", "").Replace("2G-", "").Replace("3G-", "").Replace("1B-", "").Replace("2B-", "").Replace("3B-", "");
+                if (!tuningNamePair.Equals(default(KeyValuePair<string, ArrangementTuning>)))
+                    name = tuningNamePair.Key;
+
+                if (name == null)
+                    name = GetRawTuningName();
+                else
+                    name = name.Replace("1G-", "").Replace("2G-", "").Replace("3G-", "").Replace("1B-", "").Replace("2B-", "").Replace("3B-", "");
 
                 //Calculate estimated hz offset from cents offset, if nonzero
                 if (CentsOffset != 0)
@@ -210,6 +236,7 @@ namespace RockSnifferLib.Sniffing
         public int String3;
         public int String4;
         public int String5;
+        public bool IsBass;
 
         /// <summary>
         /// Check if two tunings are equal, capo fret and cents offset are ignored

@@ -33,6 +33,11 @@
         /// <summary>
         /// Song is about to end
         /// </summary>
-        SONG_ENDING
+        SONG_ENDING,
+
+        /// <summary>
+        /// Song is paused
+        /// </summary>
+        SONG_PAUSED
     }
 }
